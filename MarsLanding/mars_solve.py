@@ -24,6 +24,19 @@ import cvxpy as cp
 import casadi as ca
 from mars_params import *
 
+
+class CvxpySolveError(RuntimeError):
+    """CVXPY 未产生可解引用轨迹时的结构化错误。"""
+
+    def __init__(self, status):
+        self.status = status
+        super().__init__(f"CVXPY solver did not return an optimal solution: {status}")
+
+
+def _ensure_cvxpy_solution(prob):
+    if prob.status != cp.OPTIMAL:
+        raise CvxpySolveError(prob.status)
+
 # ========================== CVXPY (共享建模) ================================
 
 def _build_cvxpy():
@@ -51,15 +64,28 @@ def _build_cvxpy():
         cst += [cp.SOC(sk, u[k])]
 
     prob = cp.Problem(cp.Minimize(sum(s[k] for k in range(N+1))), cst)
-    return prob, z
+    return prob, {"r": r, "v": v, "z": z, "u": u, "sigma": s}
 
 
-def solve_cvxpy(solver) -> tuple:
-    """CVXPY 通用求解 (ECOS 或 Clarabel)"""
-    prob, z = _build_cvxpy()
+def solve_cvxpy(solver, return_full=False) -> tuple:
+    """CVXPY 通用求解；可选返回轨迹和求解器元数据。"""
+    prob, variables = _build_cvxpy()
     solver_name = str(solver).split('.')[-1].split("'")[0]
     prob.solve(solver=solver, verbose=False)
-    fuel = m0 - np.exp(float(z[N].value[0]))
+    _ensure_cvxpy_solution(prob)
+    fuel = m0 - np.exp(float(variables["z"][N].value[0]))
+    if return_full:
+        solution = {
+            "r": np.asarray([x.value for x in variables["r"]], dtype=float),
+            "v": np.asarray([x.value for x in variables["v"]], dtype=float),
+            "z": np.asarray([x.value[0] for x in variables["z"]], dtype=float),
+            "u": np.asarray([x.value for x in variables["u"]], dtype=float),
+            "sigma": np.asarray([x.value[0] for x in variables["sigma"]], dtype=float),
+            "solver_status": prob.status,
+            "num_iters": int(prob.solver_stats.num_iters),
+            "solver_name": solver_name,
+        }
+        return fuel, solution
     return fuel, f"CVXPY+{solver_name}"
 
 

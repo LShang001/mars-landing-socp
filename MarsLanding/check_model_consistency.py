@@ -3,6 +3,7 @@
 
 import ast
 import re
+import shlex
 from pathlib import Path
 
 
@@ -79,6 +80,262 @@ def check_number(failures, actual, expected, label, converter=float):
     check_equal(failures, value, expected, label)
 
 
+def _cmake_commands(source):
+    """提取 CMake 命令 token；注释仅在引号外生效。"""
+    commands = []
+    errors = []
+    index = 0
+    while index < len(source):
+        if source[index] == "#":
+            bracket = re.match(r"#\[(=*)\[", source[index:])
+            if bracket:
+                closing = "]" + bracket.group(1) + "]"
+                end = source.find(closing, index + len(bracket.group()))
+                if end < 0:
+                    errors.append("CMake 括号注释未闭合 (bracket comment)")
+                    break
+                index = end + len(closing)
+                continue
+            index = source.find("\n", index)
+            if index < 0:
+                break
+            continue
+        match = re.match(r"[A-Za-z_]\w*", source[index:])
+        if not match:
+            index += 1
+            continue
+        name = match.group().lower()
+        cursor = index + len(match.group())
+        while cursor < len(source) and source[cursor].isspace():
+            cursor += 1
+        if cursor >= len(source) or source[cursor] != "(":
+            index = cursor
+            continue
+        cursor += 1
+        depth, quote, body = 1, None, []
+        while cursor < len(source) and depth:
+            char = source[cursor]
+            if quote:
+                body.append(char)
+                if char == "\\" and cursor + 1 < len(source):
+                    cursor += 1
+                    body.append(source[cursor])
+                elif char == quote:
+                    quote = None
+            elif char in "\"'":
+                quote = char
+                body.append(char)
+            elif char == "#":
+                bracket = re.match(r"#\[(=*)\[", source[cursor:])
+                if bracket:
+                    closing = "]" + bracket.group(1) + "]"
+                    end = source.find(closing, cursor + len(bracket.group()))
+                    if end < 0:
+                        errors.append("CMake 括号注释未闭合 (bracket comment)")
+                        cursor = len(source)
+                        break
+                    cursor = end + len(closing) - 1
+                    body.append(" ")
+                    cursor += 1
+                    continue
+                newline = source.find("\n", cursor)
+                cursor = len(source) if newline < 0 else newline
+                body.append("\n")
+            elif char == "(":
+                depth += 1
+                body.append(char)
+            elif char == ")":
+                depth -= 1
+                if depth:
+                    body.append(char)
+            else:
+                body.append(char)
+            cursor += 1
+        escaped_semicolon = "\x00CMAKE_ESCAPED_SEMICOLON\x00"
+        token_source = re.sub(r"\\;", escaped_semicolon, "".join(body))
+        lexer = shlex.shlex(token_source, posix=True)
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = []
+        for token in lexer:
+            tokens.extend(part.replace(escaped_semicolon, r"\;")
+                          for part in token.split(";") if part != "")
+        commands.append((name, tokens))
+        index = cursor
+    return commands, errors
+
+
+def _expanded_sources(tokens, variables, resolving=()):
+    expanded = []
+    for token in tokens:
+        match = re.fullmatch(r"\$\{([A-Za-z_]\w*)\}", token)
+        if not match:
+            expanded.append(token)
+            continue
+        variable = match.group(1)
+        if variable in variables and variable not in resolving:
+            values = _expanded_sources(variables[variable], variables,
+                                       resolving + (variable,))
+            for value in values:
+                expanded.extend(_split_cmake_list(value))
+    return expanded
+
+
+def _split_cmake_list(value):
+    marker = "\x00CMAKE_ESCAPED_SEMICOLON\x00"
+    protected = value.replace(r"\;", marker)
+    return [part.replace(marker, r"\;") for part in protected.split(";") if part]
+
+
+def _forbidden_generated_sources(tokens, variables):
+    return [source for source in _expanded_sources(tokens, variables)
+            if re.search(r"(?:Auto|Generated)(?:Data)?\.(?:c|cc|cpp)$",
+                         source, re.I)]
+
+
+def _unique_cmake_target(token, variables):
+    """展开单个目标 token；生成器表达式、未知变量和多值均不确定。"""
+    if "$<" in token:
+        return None
+    variable = re.fullmatch(r"\$\{([A-Za-z_]\w*)\}", token)
+    if variable:
+        if variable.group(1) not in variables:
+            return None
+        values = _expanded_sources(variables[variable.group(1)], variables)
+    else:
+        values = _split_cmake_list(token)
+    return values[0] if len(values) == 1 else None
+
+
+def validate_handwritten_asset(cmake, handwritten_source):
+    """校验手写矩阵实现与自动生成实现仍保持独立。"""
+    failures = []
+    commands, parse_failures = _cmake_commands(cmake)
+    failures.extend(parse_failures)
+    variables = {}
+    targets = {}
+    target_snapshots = {}
+    duplicate_targets = set()
+    protected_targets = {"ecos_avx", "ecos_scalar"}
+    for command, tokens in commands:
+        if command == "set" and tokens:
+            variables[tokens[0]] = tokens[1:]
+        elif command == "list" and len(tokens) >= 2:
+            operation, variable = tokens[0].upper(), tokens[1]
+            if operation in {"APPEND", "PREPEND", "INSERT"}:
+                values = tokens[2:]
+                current = list(variables.get(variable, []))
+                if operation == "APPEND":
+                    variables[variable] = current + values
+                elif operation == "PREPEND":
+                    variables[variable] = values + current
+                elif values:
+                    try:
+                        position = int(values[0])
+                    except ValueError:
+                        failures.append(f"CMake list(INSERT {variable}): 索引无法解释")
+                    else:
+                        position = max(0, min(position, len(current)))
+                        variables[variable] = (current[:position] + values[1:] +
+                                               current[position:])
+        elif command == "add_executable" and tokens:
+            target = tokens[0]
+            if target in targets:
+                duplicate_targets.add(target)
+            else:
+                targets[target] = tokens[1:]
+                target_snapshots[target] = {
+                    name: list(values) for name, values in variables.items()
+                }
+        elif command == "target_sources" and tokens:
+            target = _unique_cmake_target(tokens[0], variables)
+            source_tokens = [token for token in tokens[1:]
+                             if token.upper() not in {"BEFORE", "PRIVATE", "PUBLIC",
+                                                      "INTERFACE"}]
+            expanded_sources = _expanded_sources(source_tokens, variables)
+            generator_sources = [source for source in expanded_sources if "$<" in source]
+            forbidden_sources = _forbidden_generated_sources(source_tokens, variables)
+            concerning = generator_sources or forbidden_sources
+            if target is None and concerning:
+                failures.append(
+                    "CMake target_sources: 目标无法唯一解析，涉及受关注源/表达式"
+                )
+            elif target in protected_targets:
+                for source in generator_sources:
+                    failures.append(
+                        f"CMake {target}: 禁止条件源生成器表达式 {source}"
+                    )
+            for source in forbidden_sources if target in protected_targets else ():
+                failures.append(
+                    f"CMake {target}: target_sources 禁止自动/生成源 {source}"
+                )
+        elif command == "set_property" and tokens:
+            upper = [token.upper() for token in tokens]
+            if upper[0] == "TARGET" and "SOURCES" in upper:
+                boundary = min((upper.index(marker) for marker in ("APPEND", "APPEND_STRING",
+                               "PROPERTY") if marker in upper), default=len(tokens))
+                resolved = [_unique_cmake_target(token, variables)
+                            for token in tokens[1:boundary]]
+                if any(target in protected_targets for target in resolved):
+                    failures.append("CMake SOURCES: 不支持通过 set_property 修改受保护目标")
+                elif any(target is None for target in resolved):
+                    failures.append("CMake SOURCES: set_property 目标无法唯一解析，不支持")
+        elif command == "set_target_properties" and tokens:
+            upper = [token.upper() for token in tokens]
+            properties = upper.index("PROPERTIES") if "PROPERTIES" in upper else len(tokens)
+            if "SOURCES" in upper[properties + 1:]:
+                resolved = [_unique_cmake_target(token, variables)
+                            for token in tokens[:properties]]
+                if any(target in protected_targets for target in resolved):
+                    failures.append(
+                        "CMake SOURCES: 不支持通过 set_target_properties 修改受保护目标"
+                    )
+                elif any(target is None for target in resolved):
+                    failures.append(
+                        "CMake SOURCES: set_target_properties 目标无法唯一解析，不支持"
+                    )
+    for target in sorted(duplicate_targets):
+        failures.append(f"CMake {target}: 重复 add_executable 定义")
+    user_sources = variables.get("USER_SOURCES")
+    if user_sources is None:
+        failures.append("CMake USER_SOURCES: 缺少定义")
+    else:
+        for filename in ("MarsLanding/MarsLanding.c", "MarsLanding/CRM2CCM.c"):
+            if filename not in _expanded_sources(user_sources, variables):
+                failures.append(f"CMake USER_SOURCES: 缺少 {filename}")
+
+        forbidden = _forbidden_generated_sources(user_sources, variables)
+        failures.extend(f"CMake USER_SOURCES: 禁止自动/生成源 {source}"
+                        for source in forbidden)
+
+    all_sources = variables.get("ALL_SOURCES")
+    if all_sources is None or "${USER_SOURCES}" not in all_sources:
+        failures.append("CMake ALL_SOURCES: 必须包含 ${USER_SOURCES}")
+
+    for target in ("ecos_avx", "ecos_scalar"):
+        arguments = targets.get(target)
+        if arguments is None or "${ALL_SOURCES}" not in arguments:
+            failures.append(f"CMake {target}: 必须从 ${{ALL_SOURCES}} 构建")
+            continue
+        snapshot = target_snapshots[target]
+        forbidden = _forbidden_generated_sources(arguments, snapshot)
+        failures.extend(f"CMake {target}: 手写目标闭包禁止自动/生成源 {source}"
+                        for source in forbidden)
+
+    auto_arguments = targets.get("ecos_auto")
+    if auto_arguments is None or "MarsLanding/MarsLandingAuto.c" not in _expanded_sources(
+            auto_arguments, target_snapshots.get("ecos_auto", {})):
+        failures.append("CMake ecos_auto: 必须明确使用 MarsLanding/MarsLandingAuto.c")
+
+    forbidden_headers = re.findall(
+        r'^\s*#\s*include\s*[<"]([^>"]*(?:AutoData|Generated)[^>"]*)[>"]',
+        handwritten_source, re.M | re.I,
+    )
+    for header in forbidden_headers:
+        failures.append(f"MarsLanding.c: 手写源禁止包含生成矩阵数据 {header}")
+    return failures
+
+
 def validate(header, source, auto_header, params):
     """返回全部模型元数据和参数不一致项，而不是在首项失败时中止。"""
     failures = []
@@ -130,18 +387,24 @@ def main():
             inputs[filename] = ""
             failures.append(f"{filename}: 无法读取 ({error})")
     try:
+        cmake = (ROOT.parent / "CMakeLists.txt").read_text(encoding="utf-8")
+    except OSError as error:
+        cmake = ""
+        failures.append(f"CMakeLists.txt: 无法读取 ({error})")
+    try:
         params = python_assignments(inputs["mars_params.py"])
     except SyntaxError as error:
         params = {}
         failures.append(f"mars_params.py: 无法解析 ({error.msg})")
     failures.extend(validate(inputs["MarsLanding.h"], inputs["MarsLanding.c"],
                              inputs["MarsLandingAutoData.h"], params))
+    failures.extend(validate_handwritten_asset(cmake, inputs["MarsLanding.c"]))
     if failures:
         for failure in failures:
             print(f"模型一致性检查失败：{failure}")
         return 1
 
-    print("模型一致性检查通过：尺寸和物理参数均与 mars_params.py 一致。")
+    print("模型一致性检查通过：尺寸、物理参数和手写矩阵资产边界均符合约定。")
     return 0
 
 

@@ -6,9 +6,9 @@ R.~D. Braun and R.~M. Manning, ``Mars exploration entry, descent, and landing
   pp.~310--323, 2007.
 
 \bibitem{steltzner2013msl}
-A.~D. Steltzner, A.~M.~S. Martin, T.~P. Rivellini, and A.~Chen, ``Mars science
-  laboratory entry, descent, and landing system development challenges and
-  preliminary flight performance,'' in {\em 23rd {AIAA}/{AAS} Spaceflight
+A.~D. Steltzner, {A. Miguel San Martin}, T.~P. Rivellini, and A.~Chen, ``Mars
+  science laboratory entry, descent, and landing system development challenges
+  and preliminary flight performance,'' in {\em 23rd {AIAA}/{AAS} Spaceflight
   Mechanics Meeting}, pp.~521--528, 2013.
 \newblock Advances in the Astronautical Sciences, Vol. 148, Paper 2013-0236.
 
@@ -39,7 +39,7 @@ G.~N. Elnagar, M.~A. Kazemi, and M.~Razzaghi, ``The pseudospectral legendre
   on Automatic Control}, vol.~40, no.~10, pp.~1793--1796, 1995.
 
 \bibitem{blackmore2012lossless}
-L.~Blackmore, B.~A{\c{c}}{\i}kme{\c{s}}e, and J.~M.~C. III, ``Lossless
+L.~Blackmore, B.~A{\c{c}}{\i}kme{\c{s}}e, and {John M. Carson III}, ``Lossless
   convexification of control constraints for a class of nonlinear optimal
   control problems,'' {\em Systems \& Control Letters}, vol.~61, no.~8,
   pp.~863--870, 2012.
@@ -49,7 +49,7 @@ X.~Liu, P.~Lu, and B.~Pan, ``Survey of convex optimization for aerospace
   applications,'' {\em Astrodynamics}, vol.~1, no.~1, pp.~23--40, 2017.
 
 \bibitem{acikmese2013}
-B.~A{\c{c}}{\i}kme{\c{s}}e, J.~M.~C. III, and L.~Blackmore, ``Lossless
+B.~A{\c{c}}{\i}kme{\c{s}}e, {John M. Carson III}, and L.~Blackmore, ``Lossless
   convexification of nonconvex control bound and pointing constraints of the
   soft landing optimal control problem,'' {\em {IEEE} Transactions on Control
   Systems Technology}, vol.~21, no.~6, pp.~2104--2113, 2013.

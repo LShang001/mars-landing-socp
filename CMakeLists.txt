@@ -142,11 +142,29 @@ if(LTO_SUPPORTED)
 endif()
 
 # -----------------------------------------------------------------------------
-# 9. 输出目录
+# 9. 自动建模版 (CasADi 生成矩阵, 与手写版对比)
+# -----------------------------------------------------------------------------
+add_executable(ecos_auto ${ECOS_CORE_SOURCES} ${AMD_SOURCES} ${LDL_SOURCES}
+    MarsLanding/MarsLandingAuto.c)
+
+target_compile_options(ecos_auto PRIVATE ${COMMON_COMPILE_OPTIONS})
+target_compile_definitions(ecos_auto PRIVATE
+    ECOS_USE_AVX=1
+    ECOS_ALIGNMENT=32
+    PROFILING=2
+    CTRLC=0
+)
+target_link_libraries(ecos_auto PRIVATE m)
+if(LTO_SUPPORTED)
+    set_property(TARGET ecos_auto PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+# -----------------------------------------------------------------------------
+# 10. 输出目录
 # -----------------------------------------------------------------------------
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-foreach(t ecos_avx ecos_scalar)
+foreach(t ecos_avx ecos_scalar ecos_auto)
     set_target_properties(${t} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     )

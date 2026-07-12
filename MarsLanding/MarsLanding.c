@@ -247,7 +247,8 @@ int main(void)
         CRS_PUSH(VAR_IDX(k, 3),     dt);               /* +vx_k · dt    */
         CRS_PUSH(VAR_IDX(k, NX + 0), 0.5 * dt * dt);   /* +½ux_k · dt²  */
         CRS_PUSH(VAR_IDX(k + 1, 0), -1.0);             /* -rx_{k+1}     */
-        CRS_ROW(g * 0.5 * dt * dt);                    /* b = -½g·dt²   */
+        CRS_ROW(g * 0.5 * dt * dt);                    /* b = +½g·dt²
+                                           → rx_{k+1} = rx_k + dt·vx_k + ½dt²·ux_k - ½g·dt² */
 
         /* ---- 位置: ry ---- */
         CRS_PUSH(VAR_IDX(k, 1),     1.0);
@@ -267,7 +268,8 @@ int main(void)
         CRS_PUSH(VAR_IDX(k, 3),     1.0);
         CRS_PUSH(VAR_IDX(k, NX + 0), dt);
         CRS_PUSH(VAR_IDX(k + 1, 3), -1.0);
-        CRS_ROW(g * dt);                               /* b = -g·dt     */
+        CRS_ROW(g * dt);                               /* b = +g·dt
+                                           → vx_{k+1} = vx_k + dt·ux_k - g·dt */
 
         /* ---- 速度: vy ---- */
         CRS_PUSH(VAR_IDX(k, 4),     1.0);

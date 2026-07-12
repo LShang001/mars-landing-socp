@@ -83,6 +83,17 @@ def s(k):  return x[k*NV + 10] # 松弛变量
 # ========================== 约束构造 =======================================
 
 # ---- 等式约束: A*x == b ----
+# 约束方程采用与 C 手写版 MarsLanding.c 完全一致的符号约定,
+# 使得 CasADi 自动微分提取的 A 矩阵与 C 代码逐元素匹配。
+#
+# C 代码约束形式 (A*x = b 的每一行):
+#   初始BC:     x_i = boundary_value → eq: x_i - boundary_value = 0
+#   终端BC:     x_i = 0             → eq: x_i = 0
+#   位置动力学:  r_k + v_k*dt + ½u_k*dt² - r_{k+1} - ½g*dt² = 0  (g仅x)
+#   速度动力学:  v_k + u_k*dt - v_{k+1} - g*dt = 0                 (g仅x)
+#   质量动力学:  z_k - α*σ_k*dt - z_{k+1} = 0
+#
+# 物理: +x向上, 重力向下(-x方向), 故 g 项前为减号
 eq_constr = []
 
 # 初始边界条件 (7个)
@@ -94,7 +105,7 @@ eq_constr.append(vy(0) - v_0[1])
 eq_constr.append(vz(0) - v_0[2])
 eq_constr.append(z(0) - np.log(m_0))
 
-# 终端边界条件 (6个, z_N 自由)
+# 终端边界条件 (6个, z_N 自由, 目标着陆点为零)
 eq_constr.append(rx(N))
 eq_constr.append(ry(N))
 eq_constr.append(rz(N))
@@ -104,39 +115,54 @@ eq_constr.append(vz(N))
 
 # 动力学约束 (7 × N 个)
 for k in range(N):
-    # 位置: r_{k+1} = r_k + v_k*dt + 0.5*u_k*dt² + 0.5*g*dt²
-    eq_constr.append(rx(k+1) - rx(k) - vx(k)*dt - 0.5*ux(k)*dt*dt - 0.5*g*dt*dt)
-    eq_constr.append(ry(k+1) - ry(k) - vy(k)*dt - 0.5*uy(k)*dt*dt)
-    eq_constr.append(rz(k+1) - rz(k) - vz(k)*dt - 0.5*uz(k)*dt*dt)
-    # 速度: v_{k+1} = v_k + u_k*dt + g*dt  (g only in x)
-    eq_constr.append(vx(k+1) - vx(k) - ux(k)*dt - g*dt)
-    eq_constr.append(vy(k+1) - vy(k) - uy(k)*dt)
-    eq_constr.append(vz(k+1) - vz(k) - uz(k)*dt)
-    # 质量: z_{k+1} = z_k - alpha*s_k*dt
-    eq_constr.append(z(k+1) - z(k) + alpha*s(k)*dt)
+    # 位置 rx: rx_k + dt*vx_k + ½dt²*ux_k - rx_{k+1} - ½g*dt² = 0
+    eq_constr.append(rx(k) + vx(k)*dt + 0.5*ux(k)*dt*dt - rx(k+1) - 0.5*g*dt*dt)
+    # 位置 ry: ry_k + dt*vy_k + ½dt²*uy_k - ry_{k+1} = 0
+    eq_constr.append(ry(k) + vy(k)*dt + 0.5*uy(k)*dt*dt - ry(k+1))
+    # 位置 rz: rz_k + dt*vz_k + ½dt²*uz_k - rz_{k+1} = 0
+    eq_constr.append(rz(k) + vz(k)*dt + 0.5*uz(k)*dt*dt - rz(k+1))
+    # 速度 vx: vx_k + dt*ux_k - vx_{k+1} - g*dt = 0
+    eq_constr.append(vx(k) + ux(k)*dt - vx(k+1) - g*dt)
+    # 速度 vy: vy_k + dt*uy_k - vy_{k+1} = 0
+    eq_constr.append(vy(k) + uy(k)*dt - vy(k+1))
+    # 速度 vz: vz_k + dt*uz_k - vz_{k+1} = 0
+    eq_constr.append(vz(k) + uz(k)*dt - vz(k+1))
+    # 质量对数: z_k - α*σ_k*dt - z_{k+1} = 0
+    eq_constr.append(z(k) - alpha*s(k)*dt - z(k+1))
 
 # ---- 线性不等式约束: G*x <= h ----
+# ECOS 要求: 前 L_G 行全为线性约束, 后 M_G-L_G 行全为锥约束
+# 与 MarsLanding.c 完全一致的分组顺序:
+#   行 0~61   : 质量值不等式 (2 per k × 31)
+#   行 62~123 : 质量上下界   (2 per k × 31)
+#   行 124~216: 下滑角锥     (SOC q=3, 3 per cone × 31)
+#   行 217~340: 推力松弛锥   (SOC q=4, 4 per cone × 31)
 ineq_constr = []
 
+# 4.4.1 质量值不等式 (62 行): μ₁_k·(z_k-z₀_k-1)+σ_k ≤ 0 等
 for k in range(N + 1):
-    # 质量值不等式 (线性化)
     ineq_constr.append(-mu1(k)*(z(k) - z0(k) - 1) - s(k))
     ineq_constr.append( mu2(k)*(z(k) - z0(k) - 1) + s(k))
 
-    # 质量上下界
+# 4.4.2 质量上下界 (62 行): z_k 的干重/湿重边界
+for k in range(N + 1):
     ineq_constr.append(-z(k) + np.log(m_0 - alpha * rho_2 * k * dt))
     ineq_constr.append( z(k) - np.log(m_0 - alpha * rho_1 * k * dt))
 
-    # 下滑角锥: ||[ry, rz]|| <= rx*tan(theta)  (ECOS SOC 形式)
-    ineq_constr.append(rx(k) * np.tan(theta))  # 标量
-    ineq_constr.append(ry(k))                    # 向量1
-    ineq_constr.append(rz(k))                    # 向量2
+# 4.4.3 下滑角锥 (93 行, SOC q=3): ||[ry,rz]|| ≤ rx·tan(θ)
+# ECOS: h-Gx ∈ K₃, G 用负号使 h-Gx = [rx·tanθ, ry, rz]
+for k in range(N + 1):
+    ineq_constr.append(-rx(k) * np.tan(theta))
+    ineq_constr.append(-ry(k))
+    ineq_constr.append(-rz(k))
 
-    # 推力松弛锥: ||[ux, uy, uz]|| <= s (ECOS SOC 形式)
-    ineq_constr.append(s(k))                     # 标量
-    ineq_constr.append(ux(k))                    # 向量1
-    ineq_constr.append(uy(k))                    # 向量2
-    ineq_constr.append(uz(k))                    # 向量3
+# 4.4.4 推力松弛锥 (124 行, SOC q=4): ||[ux,uy,uz]|| ≤ σ
+# ECOS: h-Gx ∈ K₄, G 用负号使 h-Gx = [σ, ux, uy, uz]
+for k in range(N + 1):
+    ineq_constr.append(-s(k))
+    ineq_constr.append(-ux(k))
+    ineq_constr.append(-uy(k))
+    ineq_constr.append(-uz(k))
 
 # ---- 目标函数: minimize sum(sigma_k) ----
 obj = sum(s(k) for k in range(N + 1))
@@ -151,9 +177,9 @@ ineq_vec = ca.vertcat(*ineq_constr)
 A_casadi = ca.Function('A', [x], [ca.jacobian(eq_vec, x)])(ca.DM.zeros(NV*(N+1)))
 G_casadi = ca.Function('G', [x], [ca.jacobian(ineq_vec, x)])(ca.DM.zeros(NV*(N+1)))
 
-# 约束右端项: b = -A*x + eq_vec, h = -G*x + ineq_vec (在 x=0 处求值)
-b_vec = ca.Function('b', [x], [-A_casadi @ x + eq_vec])(ca.DM.zeros(NV*(N+1)))
-h_vec = ca.Function('h', [x], [-G_casadi @ x + ineq_vec])(ca.DM.zeros(NV*(N+1)))
+# 约束右端项: b = -eq(0), h = -ineq(0)  (与 mars_codegen.py 一致)
+b_vec = -ca.Function('b', [x], [eq_vec])(ca.DM.zeros(NV*(N+1)))
+h_vec = -ca.Function('h', [x], [ineq_vec])(ca.DM.zeros(NV*(N+1)))
 
 # ========================== 输出摘要 =======================================
 
@@ -182,17 +208,45 @@ print(f"  A 差异                   : {A_sp.nnz() - 733} ({'+' if A_sp.nnz()>=7
 print(f"  G 差异                   : {G_sp.nnz() - 403} ({'+' if G_sp.nnz()>=403 else ''}{G_sp.nnz()-403})")
 print()
 
-if A_sp.nnz() == 733 and G_sp.nnz() == 403:
-    print("  ✅ 非零元计数完全匹配! CasADi 建模与手写版一致。")
-elif A_sp.nnz() != 733:
-    print(f"  ⚠ A 矩阵非零元计数不匹配: 手写733 vs CasADi {A_sp.nnz()}")
-elif G_sp.nnz() != 403:
-    print(f"  ⚠ G 矩阵非零元计数不匹配: 手写403 vs CasADi {G_sp.nnz()}")
+sparsity_ok = A_sp.nnz() == 733 and G_sp.nnz() == 403
+if sparsity_ok:
+    print("  ✅ 非零元计数完全匹配!")
+else:
+    if A_sp.nnz() != 733:
+        print(f"  ⚠ A 矩阵非零元计数不匹配: 手写733 vs CasADi {A_sp.nnz()}")
+    if G_sp.nnz() != 403:
+        print(f"  ⚠ G 矩阵非零元计数不匹配: 手写403 vs CasADi {G_sp.nnz()}")
 
-# ---- 对比数值 ----
-# 加载手写版矩阵 (从 MarsLanding.c 输出)
-# CasADi 矩阵和手写版应该在非零元位置和数值上完全一致
-# 验证: 在 x=0 处, A*x+b 和 G*x+h 应该与手写版一致
+# ---- 数值验证 ----
+# 将 CasADi 矩阵与预期的手写版关键数值逐项对比
+# C代码 b[0]=r_0[0]=1500, b[7]=r_f[0]=0, b[13]=0.5*g*dt²=13.528...
+# C代码 h[0]=-mu1*(1+z0), h[124]=0 (下滑角锥起点), h[217]=0 (推力锥起点)
+b_casadi = ca.DM(b_vec)
+h_casadi = ca.DM(h_vec)
+
+print()
+print(f"  --- 关键 b 向量值对比 (前7行=初始BC, 第13行=rx动力学) ---")
+b_expected = [
+    ("b[0] rx_0", 1500.0),
+    ("b[1] ry_0", 0.0),
+    ("b[2] rz_0", 2000.0),
+    ("b[3] vx_0", -75.0),
+    ("b[4] vy_0", 0.0),
+    ("b[5] vz_0", 100.0),
+    ("b[6] z_0", np.log(1905.0)),
+    ("b[13] rx dyn", 0.5 * g * dt * dt),
+]
+for label, expected in b_expected:
+    casadi_val = float(b_casadi[int(label.split(']')[0][2:])])
+    match = "✅" if abs(casadi_val - expected) < 1e-6 else "⚠️"
+    print(f"    {label}: CasADi={casadi_val:.6f}  C={expected:.6f}  {match}")
+
+print()
+print(f"  --- 关键 h 向量值 ---")
+print(f"    h[0] (质量下界):  {float(h_casadi[0]):.6f}")
+print(f"    h[1] (质量上界):  {float(h_casadi[1]):.6f}")
+print(f"    h[124] (下滑角锥): {float(h_casadi[124]):.6f} (应为0)")
+print(f"    h[217] (推力锥):   {float(h_casadi[217]):.6f} (应为0)")
 
 if '--dump' in sys.argv:
     print("\n--- A 矩阵 (CSR格式, 前100个非零元) ---")
@@ -204,6 +258,6 @@ if '--dump' in sys.argv:
 
 print(f"\n============================================================")
 print(f"  验证方法:")
-print(f"     python3 mars_model.py          # 摘要对比")
+print(f"     python3 mars_model.py          # 摘要+数值对比")
 print(f"     python3 mars_model.py --dump   # 完整矩阵")
 print(f"============================================================")

@@ -8,7 +8,7 @@
  *
  * 编译: cmake 自动生成 ecos_auto 目标
  * 运行: ./build/bin/ecos_auto
- * 预期: ~312 kg (与 CVXPY+ECOS Python版一致, C手写版 400.7 kg 有差异待查)
+ * 预期: ~400.7 kg (与 C 手写版、CVXPY+ECOS Python 版完全一致)
  *
  * 作者: LShang + Hermes Agent
  * 日期: 2026-07-12

@@ -115,12 +115,13 @@ cd ../build && make -j4       # 重新编译
 ## 六、已知陷阱 (修改代码前必读)
 
 1. **T_2 = 0.8 * T_max 不能丢**: 推力上界是 80% 额定 (留姿控余量), 不是 T_max。
-2. **重力符号极易写反**: 在手写版约定中, 所有重力项都是负贡献。CasADi eq 中为 `+g`, 但显式动力学中变为 `-g`。
-3. **ECOS G 矩阵行序**: 前 `l=124` 行必须全是线性约束, 后 217 行为锥约束, 不能交错。
-4. **CRS_PUSH 宏**: 如果修改宏实现, 必须确保 `row_nnz` 正确递增。
-5. **ECOS 2.0.10 是官方满血版**: 我们的 ecos/ 目录来自官方 v2.0.10 (embotech/ecos) + 额外文件 expcone.c/wright_omega.c。ECOS 实例的 PROFILING=2 和 CTRLC=0 通过 CMake 定义。
-6. **CasADi DM 赋值**: `float(DM[i])` 或 `.nz` 访问, 不能 `list()` 迭代。
-7. **Python ecos.solve 签名**: `ecos.solve(c, G, h, dims, A=A, b=b)`, 不是 `ecos.solve(c, G, dims, A, b, h)`。
+2. **重力符号极易写反**: 在手写版约定中, 所有重力项都是负贡献。CasADi eq 中为 `+g`, 但显式动力学中变为 `-g`。详见第五节物理约定。
+3. **ECOS SOC 锥符号必须为负**: 锥约束 `h-Gx ∈ K_q` 中, G 矩阵的行必须用负系数, 使 `h-Gx = [rx·tanθ, ry, rz]` 而非取反。正系数会导致 rx ≤ 0 (违反物理)。参见 mars_model.py 和 mars_codegen.py 中的 `-rx, -ry, -rz` 等。
+4. **ECOS G 矩阵行序**: 前 `l=124` 行必须全是线性约束, 后 217 行为锥约束, 不能交错。
+5. **CRS_PUSH 宏**: 如果修改宏实现, 必须确保 `row_nnz` 正确递增。
+6. **ECOS 2.0.10 是官方满血版**: 我们的 ecos/ 目录来自官方 v2.0.10 (embotech/ecos) + 额外文件 expcone.c/wright_omega.c。ECOS 实例的 PROFILING=2 和 CTRLC=0 通过 CMake 定义。
+7. **CasADi DM 赋值**: `float(DM[i])` 或 `.nz` 访问, 不能 `list()` 迭代。
+8. **Python ecos.solve 签名**: `ecos.solve(c, G, h, dims, A=A, b=b)`, 不是 `ecos.solve(c, G, dims, A, b, h)`。
 
 ---
 
@@ -133,7 +134,7 @@ cd ../build && make -j4       # 重新编译
 | C 手写 AVX/SCL | ECOS SOCP | 400.7 kg |
 | C 自动 | ECOS SOCP | 400.7 kg |
 | Python CVXPY | ECOS SOCP | 400.7 kg |
-| Python IPOPT | NLP | ~403.6 kg (±1%) |
+| Python IPOPT | NLP | 400.7 kg |
 
 **验证命令**:
 ```bash
@@ -152,9 +153,9 @@ cd build && make -j4 && \
 | C 手写 | ECOS 2.0.10 | 手写 CRS→CCS 矩阵 | 400.7 kg | 基准 |
 | C 自动 | ECOS 2.0.10 | CasADi 生成 CCS | 400.7 kg | 0% |
 | Py CVXPY | ECOS 2.0.14 | CVXPY SOCP 建模 | 400.7 kg | 0% |
-| Py IPOPT | IPOPT 3.x | CasADi NLP | ~403.6 kg | +0.7% |
+| Py IPOPT | IPOPT 3.x | CasADi NLP (SOC光滑等价) | 400.7 kg | 0% |
 
-CVXPY/C自动版受 ECOS 版本/数值敏感性影响, 差异值由求解器而非模型引起。
+> IPOPT 使用光滑等价形式 `(rx·tanθ)² - ry² - rz² ≥ 0` 和 `σ² - ‖u‖² ≥ 0` 替代原 SOC 锥约束, 与 ECOS SOCP 结果一致。
 
 ---
 

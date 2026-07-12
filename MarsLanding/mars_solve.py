@@ -10,10 +10,11 @@
    1. CVXPY + ECOS  (SOCP)    — 二阶锥规划
    2. CasADi + IPOPT (NLP)    — 非线性规划交叉验证
 
- 验证结果 (2026-07-12):
-   CVXPY+ECOS SOCP: 400.7 kg  ← 与 C 手写版一致
-   CasADi+IPOPT NLP: ~404 kg  ← 接近, 验证模型正确性
-   C 自动版 ECOS:   400.7 kg  ← 修复后与手写版一致
+ 验证结果 (2026-07-12, 修复 SOC 约束后):
+   CVXPY+ECOS SOCP: 400.7 kg  ← 基准 (SOC 锥约束原生支持)
+   CasADi+IPOPT NLP: ~401 kg  ← NLP 交叉验证 (SOC 用光滑等价形式)
+   C 手写版 ECOS:   400.7 kg  ← 嵌入式部署
+   C 自动版 ECOS:   400.7 kg  ← CasADi 代码生成
 
  用法:  python3 mars_solve.py
 
@@ -82,8 +83,14 @@ def solve_casadi_ipopt():
         ineq+=[-mu2(k)*(z(k)-z_ref(k)-1)-s(k)]
         ineq+=[z(k)-np.log(m0-alpha*rho2*k*dt)]
         ineq+=[-z(k)+np.log(m0-alpha*rho1*k*dt)]
-        ineq+=[r(k)[0]*np.tan(theta_gs),r(k)[1],r(k)[2]]
-        ineq+=[s(k),u(k)[0],u(k)[1],u(k)[2]]
+        # SOC 下滑角: ||[ry,rz]||₂ ≤ rx·tan(θ)
+        # 用光滑等价形式: (rx·tanθ)² - ry² - rz² ≥ 0 且 rx·tanθ ≥ 0
+        ineq+=[ (r(k)[0]*np.tan(theta_gs))**2 - r(k)[1]**2 - r(k)[2]**2 ]
+        ineq+=[ r(k)[0]*np.tan(theta_gs) ]
+        # SOC 推力: ||u||₂ ≤ σ
+        # 用光滑等价形式: σ² - ux² - uy² - uz² ≥ 0 且 σ ≥ 0
+        ineq+=[ s(k)**2 - u(k)[0]**2 - u(k)[1]**2 - u(k)[2]**2 ]
+        ineq+=[ s(k) ]
 
     eq_flat=ca.vertcat(*eq)
     g_all=ca.vertcat(eq_flat,*ineq)

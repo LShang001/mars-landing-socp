@@ -225,7 +225,42 @@ cd build && make -j4 && \
 
 ---
 
-## 十、多求解器交叉验证
+## 十、论文图表与版式工作流
+
+论文图表是项目技术结论的一部分。修改 `paper/` 中的图、表或文字版式时，必须同时验证数据含义与最终 PDF 视觉效果，不能只检查脚本成功运行。
+
+**图表所有权**:
+- 数据图由 `paper/figures/generate_all.py` 从 `paper/data/trajectory.json` 与 `solver_comparison.json` 生成；必须保留 PDF 矢量输出，并同步更新 PNG 预览图。
+- 下滑角与时间预算图是 LaTeX TikZ 图，分别位于 `paper/chapters/ch2_formulation.tex` 与 `paper/chapters/ch6_embedded.tex`；不能把物理比例直接映射为无界绘图坐标。
+- 图题必须和实际数据范围一致。例如 `solver_comparison.json` 仅含三条 Python 求解路径时，图题不能声称展示六种求解器。
+
+**逐图审查清单**:
+1. 检查数据范围和坐标轴上限，确保曲线、端点、标签和图例未被裁切；三维轨迹必须覆盖 `r_z` 的实际峰值。
+2. 对恒为零的对称分量，使用图内注记说明原因，避免保留空白的整张子图；图题应同步说明省略的分量。
+3. 对约束残差，按实际控制区间绘制，并把求解容差量级明确标为数值残差。不得用对数坐标、截断坐标或漏掉终端节点来掩盖异常。
+4. 柱状图不得通过截断基线制造差异；当结果相同，应使用参考线和点图表达一致性。对数时间图需要给出可读的数值标签和单位。
+5. TikZ 图必须在 A4 实际输出尺寸下检查标签是否重叠；优先用语义清晰的示意图，不用会产生空白页或越界线段的 literal 比例图。
+6. 所有图采用统一的字体尺度、线宽、颜色和留白。禁止仅凭源 PNG 判断效果，必须检查嵌入 PDF 后的页面。
+
+**生成与视觉验收命令**:
+```bash
+# 从仓库根目录执行
+python3 paper/figures/generate_all.py
+cd paper
+xelatex -interaction=nonstopmode -halt-on-error mars_landing_socp.tex
+xelatex -interaction=nonstopmode -halt-on-error mars_landing_socp.tex
+
+# 将关键 PDF 页面渲染为位图后逐页检查
+mkdir -p /tmp/mars-paper-audit
+pdftoppm -f 1 -l 51 -jpeg -scale-to 1600 \
+  mars_landing_socp.pdf /tmp/mars-paper-audit/page
+```
+
+验收时至少检查 10 张数据图、下滑角 TikZ 图、时间预算 TikZ 图，以及图表密集的第 5 章页面。若 XeLaTeX 出现 `Overfull \\vbox`、图题和页码重叠、整页异常留白或标签裁切，必须先修复版式再提交。
+
+---
+
+## 十一、多求解器交叉验证
 
 | 版本 | 求解器 | 建模方式 | 燃料 | 偏差 |
 |------|--------|----------|------|------|
@@ -242,7 +277,7 @@ cd build && make -j4 && \
 
 ---
 
-## 十一、代码风格
+## 十二、代码风格
 
 - 中文注释 (物理/数学以中文为主, 符号保留英文)
 - 变量命名: 状态用 `r_x, v_x, z`, 控制用 `u_x, σ` (sigma)
@@ -252,7 +287,7 @@ cd build && make -j4 && \
 
 ---
 
-## 十二、Git 协同
+## 十三、Git 协同
 
 - 仓库: `git@github.com:LShang001/mars-landing-socp.git`
 - 分支: 直接推 master (无 PR 流程, 无分支保护)
@@ -261,7 +296,7 @@ cd build && make -j4 && \
 
 ---
 
-## 十三、相关资源
+## 十四、相关资源
 
 - ECOS 官方: https://github.com/embotech/ecos
 - CasADi: https://web.casadi.org/

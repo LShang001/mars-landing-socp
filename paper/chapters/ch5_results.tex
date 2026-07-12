@@ -43,7 +43,7 @@ IPOPT      & NLP（光滑等价） & 内点滤线搜索 & \texttt{tol}=$1\times1
 \begin{figure}[tbp]
 \centering
 \includegraphics[width=\widefig]{figures/fig02_position_time.pdf}
-\caption{位置分量时间曲线。上：$r_x$；中：$r_y$；下：$r_z$。}
+\caption{非零位置分量时间曲线。上：$r_x$；下：$r_z$；对称边界使 $r_y$ 全程为零。}
 \label{fig:position_time}
 \end{figure}
 
@@ -52,7 +52,7 @@ IPOPT      & NLP（光滑等价） & 内点滤线搜索 & \texttt{tol}=$1\times1
 \begin{figure}[tbp]
 \centering
 \includegraphics[width=\widefig]{figures/fig03_velocity_time.pdf}
-\caption{速度分量时间曲线。上：$v_x$；中：$v_y$；下：$v_z$。}
+\caption{非零速度分量时间曲线。上：$v_x$；下：$v_z$；对称边界使 $v_y$ 全程为零。}
 \label{fig:velocity_time}
 \end{figure}
 
@@ -174,7 +174,7 @@ CVXPY 建模层的引入使测得时间从约 8 ms 增至约 350--370 ms（约 4
 \begin{figure}[tbp]
 \centering
 \includegraphics[width=\widefig]{figures/fig10_control_time.pdf}
-\caption{控制加速度分量 $u_x, u_y, u_z$ 的时间演化曲线。}
+\caption{非零控制加速度分量 $u_x$、$u_z$ 的时间演化曲线；对称边界使 $u_y$ 全程为零。}
 \label{fig:control_time}
 \end{figure}
 

@@ -94,7 +94,7 @@ def save(fig, name):
 def fig1():
     fig = plt.figure(figsize=(5.25, 4.45))
     ax = fig.add_subplot(111, projection='3d')
-    ax.view_init(elev=19, azim=-58)
+    ax.view_init(elev=20, azim=-62)
     ax.plot(rx, ry, rz, color=COLORS[0], linewidth=2.2, solid_capstyle='round')
     ax.scatter(rx[0], ry[0], rz[0], color='#C2414B', s=48, marker='o',
                edgecolors='white', linewidth=0.8, zorder=10, label='Initial state')
@@ -110,8 +110,8 @@ def fig1():
 
     ax.set_xlim(0, 1550)
     ax.set_ylim(-150, 150)
-    ax.set_zlim(0, 2100)
-    ax.set_box_aspect([1.0, 0.34, 1.12])
+    ax.set_zlim(0, 3400)
+    ax.set_box_aspect([1.0, 0.34, 1.34])
     ax.tick_params(labelsize=7, pad=1)
     ax.xaxis.pane.fill = False
     ax.yaxis.pane.fill = False
@@ -124,19 +124,19 @@ def fig1():
 # Fig 2 — Position vs time (3 subplots, stacked vertically)
 # ============================================================
 def fig2():
-    fig, axes = plt.subplots(3, 1, figsize=(W, H3), sharex=True)
-    fig.subplots_adjust(hspace=0.12)
-    data = [(rx, '$r_x$ (m)', COLORS[0]),
-            (ry, '$r_y$ (m)', COLORS[1]),
-            (rz, '$r_z$ (m)', COLORS[2])]
+    fig, axes = plt.subplots(2, 1, figsize=(W, H2), sharex=True)
+    fig.subplots_adjust(hspace=0.14)
+    data = [(rx, '$r_x$ (m)', COLORS[0]), (rz, '$r_z$ (m)', COLORS[2])]
     for i, (ax, (d, lab, c)) in enumerate(zip(axes, data)):
         ax.plot(time, d, color=c, linewidth=1.7)
         ax.set_ylabel(lab)
         ax.axhline(y=0, color=MUTED, linewidth=0.65, linestyle=':')
         grid(ax)
-        if i < 2:
+        if i < 1:
             ax.tick_params(labelbottom=False)
     axes[-1].set_xlabel('Time (s)')
+    axes[0].text(0.98, 0.10, r'$r_y(t)=0$ (symmetric boundary)', transform=axes[0].transAxes,
+                 ha='right', va='bottom', color=MUTED, fontsize=8)
     finish(fig)
     save(fig, 'fig02_position_time')
 
@@ -145,19 +145,19 @@ def fig2():
 # Fig 3 — Velocity vs time
 # ============================================================
 def fig3():
-    fig, axes = plt.subplots(3, 1, figsize=(W, H3), sharex=True)
-    fig.subplots_adjust(hspace=0.12)
-    data = [(vx, '$v_x$ (m/s)', COLORS[0]),
-            (vy, '$v_y$ (m/s)', COLORS[1]),
-            (vz, '$v_z$ (m/s)', COLORS[2])]
+    fig, axes = plt.subplots(2, 1, figsize=(W, H2), sharex=True)
+    fig.subplots_adjust(hspace=0.14)
+    data = [(vx, '$v_x$ (m/s)', COLORS[0]), (vz, '$v_z$ (m/s)', COLORS[2])]
     for i, (ax, (d, label, c)) in enumerate(zip(axes, data)):
         ax.plot(time, d, color=c, linewidth=1.7)
         ax.set_ylabel(label)
         ax.axhline(y=0, color=MUTED, linewidth=0.65, linestyle=':')
         grid(ax)
-        if i < 2:
+        if i < 1:
             ax.tick_params(labelbottom=False)
     axes[-1].set_xlabel('Time (s)')
+    axes[0].text(0.98, 0.10, r'$v_y(t)=0$ (symmetric boundary)', transform=axes[0].transAxes,
+                 ha='right', va='bottom', color=MUTED, fontsize=8)
     finish(fig)
     save(fig, 'fig03_velocity_time')
 
@@ -321,19 +321,19 @@ def fig9():
 # Fig 10 — Control components (ux, uy, uz)
 # ============================================================
 def fig10():
-    fig, axes = plt.subplots(3, 1, figsize=(W, H3), sharex=True)
-    fig.subplots_adjust(hspace=0.12)
-    data = [(ux, '$u_x$ (N/kg)', COLORS[0]),
-            (uy, '$u_y$ (N/kg)', COLORS[1]),
-            (uz, '$u_z$ (N/kg)', COLORS[2])]
+    fig, axes = plt.subplots(2, 1, figsize=(W, H2), sharex=True)
+    fig.subplots_adjust(hspace=0.14)
+    data = [(ux, '$u_x$ (N/kg)', COLORS[0]), (uz, '$u_z$ (N/kg)', COLORS[2])]
     for i, (ax, (d, label, c)) in enumerate(zip(axes, data)):
         ax.plot(time, d, color=c, linewidth=1.7)
         ax.set_ylabel(label)
         ax.axhline(y=0, color=MUTED, linewidth=0.65, linestyle=':')
         grid(ax)
-        if i < 2:
+        if i < 1:
             ax.tick_params(labelbottom=False)
     axes[-1].set_xlabel('Time (s)')
+    axes[0].text(0.98, 0.10, r'$u_y(t)=0$ (symmetric boundary)', transform=axes[0].transAxes,
+                 ha='right', va='bottom', color=MUTED, fontsize=8)
     finish(fig)
     save(fig, 'fig10_control_time')
 

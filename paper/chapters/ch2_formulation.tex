@@ -63,7 +63,7 @@
     \qquad
     \alpha = \frac{1}{I_{\mathrm{sp}}\,g_0\cos\phi}. \label{eq:alpha}
 \end{align}
-该定义与代码实现~\cite{blackmore2010minimum}\cite{acikmese2007lossless}一致（见\texttt{mars\_params.py}: \texttt{alpha = 1.0/(I\_sp * g\_earth * cos(phi))}）。
+该定义与代码实现~\cite{blackmore2010minimum}\cite{acikmese2007lossless}一致；参数脚本 \texttt{mars\_params.py} 以同一物理关系计算 \texttt{alpha}。
 
 将式\eqref{eq:dv}按各轴分量展开，得到三个标量微分方程：
 \begin{align}
@@ -125,7 +125,11 @@ $n_T$台发动机的总推力向量为各台推力向量之和：
     u_z &= \frac{\sin\phi}{m}\sum_{i=1}^{n_T} T_i\sin\psi_i.
 \end{align}
 
-当6台发动机推力不等时，总推力矢量的方向可在一定范围内连续变化。令$\bm{e}_i = [\cos\phi,\;\sin\phi\cos\psi_i,\;\sin\phi\sin\psi_i]^{\top}$，则总推力矢量可控空间为
+当6台发动机推力不等时，总推力矢量的方向可在一定范围内连续变化。定义
+\begin{align}
+    \bm{e}_i = [\cos\phi,\;\sin\phi\cos\psi_i,\;\sin\phi\sin\psi_i]^{\top}.
+\end{align}
+则总推力矢量可控空间为
 \begin{align}
     \bm{T}_{\mathrm{total}} \in \left\{ \sum_{i=1}^{n_T} T_i\,\bm{e}_i \;:\; T_i \in [T_{\min},\, T_{\max}] \right\}.
 \end{align}
@@ -206,18 +210,17 @@ $n_T$台发动机的总推力向量为各台推力向量之和：
 
 \begin{figure}[tbp]
     \centering
-    \begin{tikzpicture}[scale=0.85,>=stealth]
-        \fill[blue!5] (0,0) -- (5.2,0.42) -- (5.2,-0.42) -- cycle;
-        \draw[->] (0,0) -- (5.6,0) node[right]{$r_y$（水平偏移）};
-        \draw[->] (0,0) -- (0,3.4) node[above]{$r_x$（高度）};
-        \draw[->] (0,0) -- (-1.45,-0.85) node[below left]{$r_z$};
-        \draw[dashed,thick,blue!60] (0,0) -- (5.2,0.42);
-        \draw[dashed,thick,blue!60] (0,0) -- (5.2,-0.42);
-        \draw[->] (1.25,0) arc (0:5:1.25);
-        \node[below right] at (1.55,0.1) {$90^\circ-\theta$};
-        \filldraw[fill=orange!85,draw=orange!50!black] (3.45,0.2) circle (0.09);
-        \node[above] at (3.45,0.28) {着陆器位置};
-        \node[blue!60!black] at (4.4,-0.22) {安全走廊};
+    \begin{tikzpicture}[scale=0.9,>=stealth]
+        \fill[blue!7] (0,0) -- (5.4,0.52) -- (5.4,-0.52) -- cycle;
+        \draw[->] (0,0) -- (5.9,0) node[right] {$\sqrt{r_y^2+r_z^2}$（水平偏移）};
+        \draw[->] (0,0) -- (0,3.6) node[above] {$r_x$（高度）};
+        \draw[dashed,very thick,blue!65] (0,0) -- (5.4,0.52);
+        \draw[dashed,very thick,blue!65] (0,0) -- (5.4,-0.52);
+        \draw[->] (0,1.1) arc (90:84.5:1.1);
+        \node[above right] at (0.55,1.02) {$\theta=86^\circ$};
+        \filldraw[fill=orange!85,draw=orange!50!black] (3.5,0.30) circle (0.09);
+        \node[above] at (3.5,0.38) {着陆器位置};
+        \node[blue!60!black] at (4.7,-0.25) {可行安全走廊};
     \end{tikzpicture}
     \caption{下滑角约束的几何示意图}
     \label{fig:glideslope}
@@ -357,7 +360,7 @@ $n_T$台发动机的总推力向量为各台推力向量之和：
 该问题具有以下数学特征：
 \begin{enumerate}
     \item \textbf{非线性动力学:} 式\eqref{eq:bolza_dyn}中质量变化率方程包含状态与控制量的耦合项$m\|\bm{u}\|$，使系统呈现本质非线性；
-    \item \textbf{非凸控制约束:} 式\eqref{eq:bolza_path1}中控制约束的上界依赖于状态$m(t)$，属于状态相关的控制约束（state-dependent constraint），导致可行域非凸；
+    \item \textbf{非凸控制约束:} 式\eqref{eq:bolza_path1}中控制约束的上界依赖于状态$m(t)$，属于状态相关约束，导致可行域非凸；
     \item \textbf{二阶锥约束:} 下滑角约束\eqref{eq:bolza_path2}是典型的二阶锥约束，形式为$\|[\cdot]\| \leq \text{linear expression}$；
     \item \textbf{自由终端质量:} 终端质量由动力学自然确定，仅受不等式下界约束$m(t_f) \geq m_{\mathrm{dry}}$；
     \item \textbf{多约束耦合:} 路径约束与动力学方程之间存在复杂的相互耦合关系，例如推力上界约束的松紧程度取决于当前质量，而质量又由推力积分决定。

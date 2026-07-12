@@ -4,7 +4,7 @@
 
 本章讨论将前文实现的稀疏 ECOS 求解算法部署至嵌入式飞行计算机的可行性。当前算法开发与验证依托于 Intel N150 平台（Gracemont 小核架构，8 GB RAM），该平台功耗约 6\textasciitilde{}10 W，属于 x86 低功耗产品线。然而，实际航天飞行计算机通常采用 ARM Cortex-M 或 RISC-V 内核的微控制器（MCU），其计算资源较 N150 低数个数量级，对算法及实现有完全不同的约束。
 
-目标部署平台选用 ARM Cortex-M7 内核微控制器。Cortex-M7 是 ARMv7-M 架构中性能最高的 MCU 内核，支持双精度浮点运算单元（FPU），主频通常为 200\textasciitilde{}600 MHz，典型片上 SRAM 为 512 KB\textasciitilde{}2 MB。对于火星着陆这类航天制导控制应用，选用具备双精度 FPU 的 M7 而非 M4（单精度 FPU）或 M3（无硬件 FPU）至关重要。
+目标部署平台可考虑 ARM Cortex-M7 内核微控制器。Cortex-M7 属于 ARMv7-M 架构，主频通常为 200\textasciitilde{}600 MHz，典型片上 SRAM 为 512 KB\textasciitilde{}2 MB。具体芯片的浮点能力和工具链支持并不完全一致；鉴于本问题要求双精度数值计算，选型时必须以芯片手册和交叉编译结果确认双精度路径的性能与可用性，不能只依据内核名称推断。
 
 双精度浮点运算的强制性已在实践中得到充分验证。本课题组此前在 Clarabel 求解器上进行了单精度（float）对比实验：相同 SOCP 问题、相同锥约束，仅将求解器数值类型从 double 切换为 float，所得燃料消耗从 400.7 kg 剧增至 1880+ kg，相对误差达 375\%。这一巨大偏差的根本原因在于该问题的数值动态范围极端：位置状态量级约 $10^3$ m，而质量对数状态 $\ln m$ 的下界约 $7.3$，其指数 $\exp(-z)$ 量级仅约 $10^{-4}$，贯穿 KKT 系统的条件数达到 $10^8$。IEEE 754 单精度浮点数仅约 7 位有效十进制数字，在 $10^8$ 条件数下求解线性系统时损失的精度远超收敛容差。双精度提供约 16 位有效数字，可安全容纳此动态范围。因此目标平台必须配备双精度 FPU，Cortex-M7 的 FPv5 硬浮点单元满足此需求。
 
@@ -48,7 +48,7 @@ M_{\text{total}} &= M_{\text{KKT}} + M_{\text{L}} + M_{\text{workspace}} \approx
 
 火星动力下降的制导周期通常为 100\textasciitilde{}500 ms，远快于飞行器的刚体动力学时间常数（秒级）。这一周期为 SOCP 求解提供了充足的计算时间窗口。
 
-Intel N150 平台实测单次 ECOS 求解平均耗时约 8 $\mu$s（取内点法迭代次数 8\textasciitilde{}12 次均值，Release 模式）。移植至 Cortex-M7 后的性能可通过运算特征估算。分析 ECOS 求解器的计算热点分布如表 \ref{tab:ecos_hotspots} 所示。
+Intel N150 平台在 Release 构建下，对已完成问题装配和初始化后的 \texttt{ECOS\_solve()} 重复计时，单次求解平均耗时约 8 ms（内点法迭代次数通常为 8\textasciitilde{}12 次）。该数字是当前代码与硬件组合的实测结果，不应直接外推为其他处理器上的执行时间。移植至 Cortex-M7 后，应先在目标板上以相同问题规模、编译选项和容差进行基准测试；表 \ref{tab:ecos_hotspots} 列出需要重点测量的计算热点。
 
 \begin{table}[htbp]
 \centering
@@ -69,50 +69,39 @@ KKT 组装 & 矩阵向量运算 & 10\textasciitilde{}15\% \\
 
 稀疏 LDL 分解和三角回代是耗时最长的两个阶段，均以稀疏矩阵向量运算为主。在 N150 上，这些操作的核心瓶颈是内存带宽而非计算吞吐——不规则的内存访问模式（CCS 格式的 gather/scatter）使得处理器频繁等待缓存未命中。Cortex-M7 的 SRAM 通常挂载在紧耦合内存总线上，访问延迟低（通常在 2\textasciitilde{}5 周期），无 DDR 的片外访问延迟。因此，在同样 8 次迭代、同样问题规模下，M7 上的内存延迟惩罚较小，但主频差距显著。
 
-估算目标性能时遵循以下假设：N150（Gracemont 小核）等效单线程性能约 4000 DMIPS，Cortex-M7 在 480 MHz 下约 1200 DMIPS，两者比值为 3.3。LDL 分解的 O(nnz) 模型中计算与访存交织，实际 IPC 差异相对较小，保守估计综合性能比为 5\textasciitilde{}10 倍。由此得：
-
-\begin{align}
-t_{\text{M7}} = 8\ \mu\text{s} \times (5 \sim 10) \approx 40 \sim 80\ \mu\text{s}.
-\end{align}
-
-但上述估算未考虑 LLVM/GCC 向量化和架构差异，更保守的上限估计考虑 Cortex-M7 无 SIMD 单元且分支预测能力较弱，给出 200\textasciitilde{}500 $\mu$s 的单次求解时间。
-
-即使取最保守估计 500 $\mu$s，与 100 ms 的制导周期相比仅占 0.5\%。在周期剩余部分，飞行计算机还需完成导航滤波（通常为扩展卡尔曼滤波器，约需 1\textasciitilde{}5 ms）、姿态控制律计算（约需 0.1\textasciitilde{}0.5 ms）、遥测数据打包等任务。图 \ref{fig:timing_budget} 展示了完整周期的时间预算分配。
+DMIPS 比值、缓存结构、双精度实现和编译器代码生成均会显著影响稀疏 LDL 分解的耗时，因此不能由 N150 的 8 ms 测量值可靠推出 Cortex-M7 的微秒级结论。部署验证应记录每次 \texttt{ECOS\_solve()} 的迭代次数、最坏/分位耗时、峰值静态内存及收敛状态，并在典型与边界初始条件下重复测试。以 100 ms 为设计制导周期时，当前时间预算将 SOCP 预留为 8 ms；该预留是面向 N150 实测基线的工程预算，而非 Cortex-M7 的性能承诺。目标板若无法满足该预算，应通过缩减问题规模、预分配内存、降低重规划频率或更换计算平台解决。图 \ref{fig:timing_budget} 展示了该预算分配。
 
 \begin{figure}[htbp]
 \centering
-\begin{tikzpicture}[scale=0.6]
-  \draw[thick] (0,0) -- (20,0);
-  \foreach \x in {0,2,...,20} \draw (\x,-0.1) -- (\x,0.1);
-  \node[above] at (0,0.3) {0 ms};
-  \node[above] at (10,0.3) {50 ms};
-  \node[above] at (20,0.3) {100 ms};
-
-  \fill[blue!30] (0,0.5) rectangle (0.01,1.0);
-  \node[above] at (0.005,1.1) {\tiny SOCP};
-
-  \fill[green!30] (0.5,0.5) rectangle (5.5,1.0);
-  \node[above] at (3.0,1.1) {\tiny 导航滤波};
-
-  \fill[orange!30] (6.0,0.5) rectangle (6.5,1.0);
-  \node[above] at (6.25,1.1) {\tiny 姿态控制};
-
-  \fill[gray!20] (7.0,0.5) rectangle (8.5,1.0);
-  \node[above] at (7.75,1.1) {\tiny 余量};
+\begin{tikzpicture}[x=0.125cm,y=0.85cm,>=stealth]
+  \draw[->] (0,0) -- (104,0) node[right] {ms};
+  \foreach \x in {0,10,...,100} {
+    \draw (\x,-0.12) -- (\x,0.12);
+    \node[below] at (\x,-0.12) {\scriptsize \x};
+  }
+  \fill[blue!65] (0,0.45) rectangle (8,1.15);
+  \node[white,font=\scriptsize] at (4,0.8) {SOCP};
+  \fill[green!50] (9,0.45) rectangle (25,1.15);
+  \node[font=\tiny,align=center] at (17,0.8) {导航\\滤波};
+  \fill[orange!65] (26,0.45) rectangle (31,1.15);
+  \node[font=\tiny,above] at (28.5,1.15) {姿态控制};
+  \fill[gray!28] (32,0.45) rectangle (100,1.15);
+  \node[font=\scriptsize] at (66,0.8) {余量 / 通信与遥测};
+  \draw[gray!60,dashed] (100,0.22) -- (100,1.38);
 \end{tikzpicture}
 \caption{制导周期时间预算分配（100 ms 周期）}
 \label{fig:timing_budget}
 \end{figure}
 
-此外，SOCP 求解之前的矩阵构造阶段（将问题状态量组装为 KKT 系统）可忽略不计。当前手写 C 版本的矩阵构造采用预计算的符号非零元结构，每次求解仅需回调约 3400 次浮点赋值操作，实测耗时小于 0.01 ms。该阶段无需 CSP（约束满足问题）求解或动态数据结构的构建，在 M7 上预计也仅需 0.05\textasciitilde{}0.1 ms。
+此外，SOCP 求解之前的矩阵构造阶段采用预计算的符号非零元结构，每次求解只更新数值项，不构建动态数据结构。该阶段应与 \texttt{ECOS\_solve()} 分别计时并纳入目标板的端到端基准，避免将主机端的局部测量误用为飞行软件的时序保证。
 
 值得注意的是，ECOS 内点法的迭代次数受问题数值条件影响：在终端接近精确着陆条件时，KKT 矩阵可能发生近奇异现象，导致迭代次数增加至 15\textasciitilde{}20 次。极端情况下，纯内点法可能需要额外的迭代精化（iterative refinement）步骤以恢复数值精度。ECOS 默认的迭代精化步数为 9（参见参数 \texttt{NITREF}），若保留此设置，每次迭代精化相当于一次额外的三角回代，对总求解时间影响约 15\textasciitilde{}25\%。
 
 \subsection{交叉编译策略}
 
-将 ECOS 求解器部署至 Cortex-M7 需要完整的交叉编译工具链支持。项目选用 \texttt{arm-none-eabi-gcc} 工具链配合 Newlib C 标准库实现。
+将 ECOS 求解器部署至 Cortex-M7 需要完整的交叉编译工具链支持。可采用 ARM GNU 交叉工具链，并配合 Newlib C 标准库完成最小运行时集成。
 
-工具链配置的核心是目标 Triple 的选择。Cortex-M7 支持双精度 FPU，使用 ARMv7-M 架构的 FPv5 扩展，对应的 GCC 选项为：
+工具链配置的核心是目标 Triple 与浮点 ABI 的选择。以下选项仅为具备相应硬件支持时的候选配置；在目标板上必须编译、链接并测试双精度算术路径后，才能将其用于飞行软件：
 
 \begin{align}
 \text{CFLAGS} &= \texttt{-mcpu=cortex-m7 -mthumb} \notag \\
@@ -120,7 +109,7 @@ t_{\text{M7}} = 8\ \mu\text{s} \times (5 \sim 10) \approx 40 \sim 80\ \mu\text{s
 &\quad \texttt{-Os -ffunction-sections -fdata-sections}.
 \end{align}
 
-其中 \texttt{-mfloat-abi=hard} 使用硬浮点调用约定，所有浮点参数通过 FPU 寄存器传递，避免通过通用寄存器转发的开销。\texttt{-mfpu=fpv5-d16} 表示使用包含 16 个双精度寄存器的 FPv5 扩展。\texttt{-Os} 优化尺寸模式对嵌入式部署至关重要：MCU 的 Flash 容量通常为 1\textasciitilde{}2 MB，而 ECOS 核心代码约 8000 行，经 \texttt{-Os} 编译后二进制体积可压缩至约 100\textasciitilde{}150 KB。
+其中 \texttt{-mfloat-abi=hard} 在目标 ABI 支持时使用硬浮点调用约定，使浮点参数可经 FPU 寄存器传递。\texttt{-mfpu=fpv5-d16} 的可用性须由具体芯片与 GCC 版本确认。\texttt{-Os} 优化尺寸模式对嵌入式部署至关重要；二进制体积、数学库实现和双精度性能均应通过目标板构建产物及运行基准测量，而非仅据源码行数估算。
 
 \texttt{arm-none-eabi-newlib} 作为 C 标准库运行时，提供基本的数学函数实现。ECOS 求解器依赖 \texttt{<math.h>} 中的 \texttt{sqrt}、\texttt{exp}、\texttt{pow} 等函数。Newlib 的数学库分为双精度（libm.a）和单精度（libm\_f.a）两套实现，链接时需确保使用双精度版本：
 
@@ -158,7 +147,7 @@ Newlib 的 \texttt{sqrt} 和 \texttt{exp} 在 ARM 架构下通常调用硬浮点
 
 在以上流程中，SOCP 求解结果的质量直接决定着陆精度。当前 3-DOF 模型求解输出的期望推力 $\bm{u}^*$ 需要转换为姿态指令（期望俯仰角和偏航角），由姿态内环跟踪。由于姿态响应时间远快于位置动力学（通常姿态时间常数 $< 0.5$ s，而位置时间常数约 5\textasciitilde{}10 s），姿态跟踪延迟对制导精度的影响可忽略。
 
-故障检测与重规划机制是安全关键系统的核心保障。当大气密度、风速等环境参数偏离标称值，或发动机实际推力与标称值出现偏差时，制导律必须能够在线调整。当前 SOCP 问题每次求解所需的 200\textasciitilde{}500 $\mu$s 使得重规划可在同一控制周期内完成，无需跨周期等待。这一能力相比传统基于查表或离线轨迹跟踪的制导方案提供了显著更强的鲁棒性。
+故障检测与重规划机制是安全关键系统的核心保障。当大气密度、风速等环境参数偏离标称值，或发动机实际推力与标称值出现偏差时，制导律必须能够在线调整。是否能在同一控制周期内完成重规划，必须以目标飞行计算机的端到端测量为准；在当前 N150 基线下，8 ms 的求解预留可纳入 100 ms 周期，但尚不能据此宣称 Cortex-M7 已满足相同实时性要求。相较于纯离线轨迹跟踪，在线重规划的鲁棒性收益仍需在目标硬件与闭环仿真中共同验证。
 
 \subsection{当前局限与未来工作}
 
@@ -166,8 +155,8 @@ Newlib 的 \texttt{sqrt} 和 \texttt{exp} 在 ARM 架构下通常调用硬浮点
 
 \textbf{无大气阻力模型}：当前动力学模型完全忽略大气阻力。火星大气密度极低，仅为地球的约 1\%（表面大气压约 600 Pa），在动力下降段飞行速度从约 150 m/s 降至 0，动压峰值约 100\textasciitilde{}300 Pa，对应阻力加速度约 $0.01\sim0.1\,\text{m/s}^2$，与火星重力（$3.7114\ \text{m/s}^2$）相比小 1\textasciitilde{}2 个数量级。在燃料优化问题中忽略此量级的阻力导致的终端位置偏差约 1\textasciitilde{}5 m，在可接受范围内。
 
-\textbf{3-DOF 质点模型，无姿态耦合}：当前模型将飞行器简化为质点，仅考虑平动动力学，忽略姿态与推力的耦合效应。实际飞行中，推力方向受限于飞行器当前的姿态角速率和最大角加速度，不能瞬时改变。单台发动机的推力方向固定（安装倾角 ${27}^{\circ}$），合力方向由各台发动机的节流分配共同决定，存在耦合约束。将 3-DOF 模型扩展为 6-DOF 刚体模型（包含 3 个平动自由度和 3 个转动自由度）将使问题维度大幅增加——每步决策变量从 11 维增至 18 维，约束数量相应增加。SOCP 问题规模预计膨胀至约 $n=558$、$m=558$，KkT 矩阵非零元约 4000\textasciitilde{}6000。但 ECOS 求解器的稀疏 LDL 分解算法及 AMD 排序能力仍可应对这一规模，单次求解时间预计在 Cortex-M7 上仍低于 5 ms，不影响 100 ms 的制导周期。
+\textbf{3-DOF 质点模型，无姿态耦合}：当前模型将飞行器简化为质点，仅考虑平动动力学，忽略姿态与推力的耦合效应。实际飞行中，推力方向受限于飞行器当前的姿态角速率和最大角加速度，不能瞬时改变。单台发动机的推力方向固定（安装倾角 ${27}^{\circ}$），合力方向由各台发动机的节流分配共同决定，存在耦合约束。将 3-DOF 模型扩展为 6-DOF 刚体模型（包含 3 个平动自由度和 3 个转动自由度）将使问题维度大幅增加——每步决策变量从 11 维增至 18 维，约束数量相应增加。SOCP 问题规模预计膨胀至约 $n=558$、$m=558$，KKT 矩阵非零元约 4000\textasciitilde{}6000。ECOS 的稀疏 LDL 分解和 AMD 排序为该扩展提供了可行的实现基础，但其内存与实时性必须在目标平台重新测量。
 
-\textbf{固定终端时间，未优化着陆时间}：当前终端时间 $t_f = 81$ s 为固定值，由离线预设确定。实际任务中，最优着陆时间随初始状态和气象条件而变化。若将 $t_f$ 纳入优化变量，问题将从定终端时间的最优控制变为变终端时间问题。一种处理策略是将 $t_f$ 作为外层搜索变量，由黄金分割法或二分法在合理区间（如 70\textasciitilde{}100 s）内迭代调用 ECOS 求解。外层搜索通常仅需 5\textasciitilde{}10 次迭代，每次迭代需求解一次 SOCP，总计算时间约 5\textasciitilde{}10 ms，仍在可接受范围内。
+\textbf{固定终端时间，未优化着陆时间}：当前终端时间 $t_f = 81$ s 为固定值，由离线预设确定。实际任务中，最优着陆时间随初始状态和气象条件而变化。若将 $t_f$ 纳入优化变量，问题将从定终端时间的最优控制变为变终端时间问题。一种处理策略是将 $t_f$ 作为外层搜索变量，由黄金分割法或二分法在合理区间（如 70\textasciitilde{}100 s）内迭代调用 ECOS 求解。外层搜索通常仅需 5\textasciitilde{}10 次迭代，但其总耗时需按每次 SOCP 的目标平台实测值评估，不能沿用主机或其他架构的推算数字。
 
 上述局限为后续工作指明了三个方向：引入大气阻力模型（通过增加海拔高度相关的指数密度剖面）、将 SOCP 拓展至 6-DOF 刚体模型（需处理姿态与推力之间的旋转耦合约束）、以及变终端时间外层优化。这三项增强可逐步集成，每项增强对求解时间的影响均可通过前文所述的方法进行预算与验证。

@@ -271,7 +271,12 @@ v_{z,k+1} &= v_{z,k} + \Delta t\cdot u_{z,k}, \\[4pt]
 z_{k+1} &= z_k - \Delta t\cdot\alpha\,\sigma_k. \label{eq:disc_z_scalar}
 \end{align}
 
-在ECOS的$Ax=b$标准形式中，方程\eqref{eq:disc_rx}写为等式约束$+r_{x,k} + \Delta t\,v_{x,k} + \frac{1}{2}\Delta t^2 u_{x,k} - r_{x,k+1} = +\frac{1}{2}g\Delta t^2$——重力项以正值出现在$b$向量右侧，即C代码中\lstinline{CRS_ROW(g * 0.5 * dt * dt)}。这是理解C手写矩阵构造中$b$向量符号的关键。
+在ECOS的$Ax=b$标准形式中，方程\eqref{eq:disc_rx}写为
+\begin{align}
+    +r_{x,k} + \Delta t\,v_{x,k} + \frac{1}{2}\Delta t^2 u_{x,k} - r_{x,k+1}
+    = +\frac{1}{2}g\Delta t^2.
+\end{align}
+重力项以正值出现在$b$向量右侧；C 手写矩阵构造使用 \lstinline{CRS_ROW(g * 0.5 * dt * dt)} 写入该项。这是理解$b$向量符号的关键。
 
 \subsubsection{边界条件的离散化}
 

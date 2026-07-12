@@ -6,54 +6,57 @@ R.~D. Braun and R.~M. Manning, ``Mars exploration entry, descent, and landing
   pp.~310--323, 2007.
 
 \bibitem{steltzner2013msl}
-A.~Steltzner {\em et~al.}, ``Mars science laboratory entry, descent, and
-  landing system overview,'' in {\em IEEE Aerospace Conference}, pp.~1--18,
-  2013.
+A.~D. Steltzner, A.~M.~S. Martin, T.~P. Rivellini, and A.~Chen, ``Mars science
+  laboratory entry, descent, and landing system overview and preliminary flight
+  performance results,'' in {\em 23rd {AIAA}/{AAS} Spaceflight Mechanics
+  Meeting}, pp.~521--528, 2013.
+\newblock Advances in the Astronautical Sciences, Vol. 148, Paper 2013-0236.
 
 \bibitem{chen2021mars2020}
-A.~Chen {\em et~al.}, ``Mars 2020 entry, descent, and landing system
-  performance,'' {\em Journal of Spacecraft and Rockets}, vol.~58, no.~5,
-  pp.~1247--1258, 2021.
+A.~Nelessen, C.~Sackier, I.~Clark, P.~Brugarolas, G.~Villar, A.~Chen,
+  A.~Stehura, R.~Otero, E.~Stilley, D.~Way, K.~Edquist, S.~Mohan, G.~Giovingo,
+  and L.~Lefland, ``Mars 2020 entry, descent, and landing system overview,'' in
+  {\em 2019 {IEEE} Aerospace Conference}, pp.~1--20, 2019.
 
 \bibitem{ye2021tianwen}
 P.~Ye, Z.~Sun, W.~Rao, and L.~Meng, ``Mission overview and key technologies of
-  the first {Mars} probe of {China},'' {\em Science China Technological
-  Sciences}, vol.~64, no.~2, pp.~249--257, 2021.
+  the first mars probe of {China},'' {\em Science China Technological
+  Sciences}, vol.~60, no.~5, pp.~649--657, 2017.
 
 \bibitem{acikmese2007lossless}
-B.~A\c{c}{\i}kme{\c{s}}e and S.~R. Ploen, ``Convex programming approach to
+B.~A{\c{c}}{\i}kme{\c{s}}e and S.~R. Ploen, ``Convex programming approach to
   powered descent guidance for {Mars} landing,'' {\em Journal of Guidance,
   Control, and Dynamics}, vol.~30, no.~5, pp.~1353--1366, 2007.
 
 \bibitem{benson2003direct}
-D.~A. Benson, ``Direct trajectory optimization using nonlinear programming and
-  collocation,'' {\em Journal of Guidance, Control, and Dynamics}, vol.~26,
-  no.~6, pp.~824--833, 2003.
+C.~R. Hargraves and S.~W. Paris, ``Direct trajectory optimization using
+  nonlinear programming and collocation,'' {\em Journal of Guidance, Control,
+  and Dynamics}, vol.~10, no.~4, pp.~338--342, 1987.
 
 \bibitem{el2009legendre}
-G.~Elnagar, M.~A. Kazemi, and M.~Razzaghi, ``The pseudospectral {Legendre}
-  method for discretizing optimal control problems,'' {\em IEEE Transactions on
-  Automatic Control}, vol.~40, no.~10, pp.~1793--1796, 2009.
+G.~N. Elnagar, M.~A. Kazemi, and M.~Razzaghi, ``The pseudospectral legendre
+  method for discretizing optimal control problems,'' {\em {IEEE} Transactions
+  on Automatic Control}, vol.~40, no.~10, pp.~1793--1796, 1995.
 
 \bibitem{blackmore2012lossless}
-L.~Blackmore, B.~A\c{c}{\i}kme{\c{s}}e, and J.~M. Carson, ``Lossless
-  convexification of powered-descent guidance with nonconvex constraints,''
-  {\em Journal of Guidance, Control, and Dynamics}, vol.~35, no.~2,
-  pp.~312--326, 2012.
+L.~Blackmore, B.~A{\c{c}}{\i}kme{\c{s}}e, and J.~M.~C. III, ``Lossless
+  convexification of control constraints for a class of nonlinear optimal
+  control problems,'' {\em Systems \& Control Letters}, vol.~61, no.~8,
+  pp.~863--870, 2012.
 
 \bibitem{liu2017trajectory}
 X.~Liu, P.~Lu, and B.~Pan, ``Survey of convex optimization for aerospace
   applications,'' {\em Astrodynamics}, vol.~1, no.~1, pp.~23--40, 2017.
 
 \bibitem{acikmese2013}
-B.~A\c{c}{\i}kme{\c{s}}e, J.~M. Carson, and L.~Blackmore, ``Lossless
-  convexification of nonconvex control bound and pointing constraints,'' {\em
-  {IEEE} Transactions on Control Systems Technology}, vol.~21, no.~4,
-  pp.~1204--1213, 2013.
+B.~A{\c{c}}{\i}kme{\c{s}}e, J.~M.~C. III, and L.~Blackmore, ``Lossless
+  convexification of nonconvex control bound and pointing constraints of the
+  soft landing optimal control problem,'' {\em {IEEE} Transactions on Control
+  Systems Technology}, vol.~21, no.~6, pp.~2104--2113, 2013.
 
 \bibitem{domahidi2013ecos}
-A.~Domahidi, E.~Chu, and S.~Boyd, ``{ECOS}: An {SOCP} solver for embedded
-  systems,'' in {\em Proceedings of the 12th European Control Conference
-  (ECC)}, (Z{\"u}rich, Switzerland), pp.~3071--3076, 2013.
+A.~Domahidi, E.~Chu, and S.~P. Boyd, ``{ECOS}: An {SOCP} solver for embedded
+  systems,'' in {\em European Control Conference ({ECC})}, pp.~3071--3076,
+  2013.
 
 \end{thebibliography}

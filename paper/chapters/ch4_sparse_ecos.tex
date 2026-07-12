@@ -26,7 +26,7 @@ ECOS 接受如下标准形式的锥优化问题：
 
 ECOS 在 NASA 火星着陆 MSL 任务的后备制导系统 FNPEG 中得到工程验证，并在机器人运动规划、MPC 控制、信号处理等嵌入式场景中广泛部署。求解器以纯 C 语言实现，核心代码仅约 8000 行，无外部线性代数库依赖，通过 LDL 稀疏分解求解内点法所需的 KKT 系统。求解器核心参数如表 \ref{tab:ecos_params} 所示。
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{ECOS 核心求解参数}
 \label{tab:ecos_params}
@@ -178,7 +178,7 @@ r_{x,k} \\ v_{x,k} \\ u_{x,k} \\ r_{x,k+1}
 = \frac{1}{2}g\Delta t^2.
 \end{align}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{等式约束矩阵 $\bm{A}$ 非零元分布}
 \label{tab:annz}
@@ -216,7 +216,7 @@ r_{x,k} \\ v_{x,k} \\ u_{x,k} \\ r_{x,k+1}
 
 \textbf{锥部分（217 个非零元）：} 后 217 行为二阶锥约束。下滑角约束每步 3 行（$r_x, r_y, r_z$），每行 1 个非零元，计 $31 \times 3 = 93$ 个非零元。推力松弛约束每步 4 行（$\sigma, u_x, u_y, u_z$），每行 1 个非零元，计 $31 \times 4 = 124$ 个非零元。
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{不等式约束矩阵 $\bm{G}$ 非零元分布}
 \label{tab:gnnz}

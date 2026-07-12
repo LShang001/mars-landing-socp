@@ -12,7 +12,7 @@
 \dot{\bm v} &= \bm g + \frac{\bm T}{m},\label{eq:dyn_v}\\
 \dot m &= -\alpha\|\bm T\|,\label{eq:dyn_m}
 \end{align}
-其中~$\bm g=[-g,0,0]^{\mathsf T}$为重力加速度矢量（$g=9.81~\text{m/s}^2$），$\alpha=1/(I_{\text{sp}}g_0)$为推力比冲相关的常数（$I_{\text{sp}}$为比冲，$g_0$为海平面重力加速度）。初始条件与终端条件分别为：
+其中~$\bm g=[-g,0,0]^{\mathsf T}$为重力加速度矢量（$g=3.7114~\text{m/s}^2$），$\alpha=1/(I_{\text{sp}}g_0\cos\phi)$为推力比冲相关的常数（$I_{\text{sp}}$为比冲，$g_0$为海平面重力加速度）。初始条件与终端条件分别为：
 \begin{align}
 \bm r(0) &=\bm r_0,\quad \bm v(0) =\bm v_0,\quad m(0)=m_0,\\
 \bm r(t_f) &=\bm r_f,\quad \bm v(t_f)=\bm v_f,
@@ -167,9 +167,9 @@ z(t) \triangleq \ln m(t),\quad m(t) = \mathrm{e}^{z(t)}.
 
 首先需构建质量对数的参考轨迹~$z_0(k)$。在离散时间框架下（$k=0,1,\dots,N$），选取飞行器全程以最大推力消耗燃料的极端工况作为参考：
 \begin{align}
-z_0(k) = \ln\bigl(m_0 - \alpha T_{\max}\cdot k\Delta t\bigr),\quad k=0,1,\dots,N,
+z_0(k) = \ln\bigl(m_0 - \alpha\rho_2\cdot k\Delta t\bigr),\quad k=0,1,\dots,N,
 \end{align}
-其中~$\Delta t = t_f/N$为离散时间步长。该参考轨迹的物理含义为：假设飞行器从初始时刻起始终以最大推力~$T_{\max}$工作，则质量按~$m(t)=m_0-\alpha T_{\max}t$线性递减，对应的质量对数为~$z(k\Delta t)=\ln(m_0-\alpha T_{\max}\cdot k\Delta t)$。由于实际飞行中推力通常不会始终处于最大值（燃料最优解往往在~$T_{\min}$和~$T_{\max}$之间切换），该参考轨迹提供了质量对数的最保守估计——实际质量对数~$z(t)$应不低于该参考值。
+其中~$\Delta t = t_f/N$为离散时间步长。该参考轨迹的物理含义为：假设飞行器从初始时刻起始终以最大推力~$T_{\max}$工作，则质量按~$m(t)=m_0-\alpha T_{\max}t$线性递减，对应的质量对数为~$z(k\Delta t)=\ln(m_0-\alpha \rho_2\cdot k\Delta t)$。由于实际飞行中推力通常不会始终处于最大值（燃料最优解往往在~$T_{\min}$和~$T_{\max}$之间切换），该参考轨迹提供了质量对数的最保守估计——实际质量对数~$z(t)$应不低于该参考值。
 
 在~$z_0$处对~$f(z)=\mathrm{e}^{-z}$进行一阶泰勒展开，保留前两项：
 \begin{align}
@@ -188,7 +188,7 @@ f(z) &= \mathrm{e}^{-z},\quad f'(z) = -\mathrm{e}^{-z},\\
 \end{align}
 定义线性化系数~$\mu_1(k)$：
 \begin{align}
-\mu_1(k) \triangleq T_{\min}\mathrm{e}^{-z_0(k)} = \frac{T_{\min}}{m_0 - \alpha T_{\max}\cdot k\Delta t},\quad k=0,1,\dots,N.
+\mu_1(k) \triangleq \rho_1\mathrm{e}^{-z_0(k)} = \frac{\rho_1}{m_0 - \alpha \rho_2\cdot k\Delta t},\quad k=0,1,\dots,N.
 \end{align}
 则下界线性化约束的简洁形式为：
 \begin{align}
@@ -202,7 +202,7 @@ f(z) &= \mathrm{e}^{-z},\quad f'(z) = -\mathrm{e}^{-z},\\
 \end{align}
 定义~$\mu_2(k)$并得到上界线性化约束：
 \begin{align}
-\mu_2(k) &\triangleq T_{\max}\mathrm{e}^{-z_0(k)} = \frac{T_{\max}}{m_0 - \alpha T_{\max}\cdot k\Delta t},\quad k=0,1,\dots,N,\\
+\mu_2(k) &\triangleq T_{\max}\mathrm{e}^{-z_0(k)} = \frac{\rho_2}{m_0 - \alpha \rho_2\cdot k\Delta t},\quad k=0,1,\dots,N,\\
 \sigma_k + \mu_2(k)(z_k - z_0(k) - 1) &\le 0,\quad k=0,1,\dots,N.\label{eq:upper_linear}
 \end{align}
 
@@ -250,26 +250,28 @@ t_k = k\Delta t,\quad k=0,1,\dots,N.
 \bm u_k &\triangleq \bm u(t_k),\quad \sigma_k \triangleq \sigma(t_k).
 \end{align}
 
-\subsubsection{前向欧拉积分公式}
+\subsubsection{双积分器离散化}
 
-采用一阶前向欧拉法（Forward Euler）对动力学方程进行数值积分。对于线性动力学系统~\eqref{eq:dyn_r_new}--\eqref{eq:dyn_z_new}，在区间~$[t_k, t_{k+1}]$上应用前向欧拉格式：
+位置动力学$\dot{\bm r}=\bm v$和速度动力学$\dot{\bm v}=\bm g+\bm u$构成双积分器系统。在区间$[t_k, t_{k+1}]$上，对速度方程采用前向欧拉离散，再代入位置方程得双积分器格式：
 \begin{align}
-\bm r_{k+1} &= \bm r_k + \Delta t\cdot \bm v_k,\label{eq:disc_r}\\
-\bm v_{k+1} &= \bm v_k + \Delta t\cdot(\bm g + \bm u_k),\label{eq:disc_v}\\
-z_{k+1} &= z_k - \Delta t\cdot\alpha\sigma_k,\label{eq:disc_z}
+\bm r_{k+1} &= \bm r_k + \Delta t\cdot \bm v_k + \tfrac{1}{2}\Delta t^2(\bm g + \bm u_k), \label{eq:disc_r} \\
+\bm v_{k+1} &= \bm v_k + \Delta t\cdot(\bm g + \bm u_k), \label{eq:disc_v} \\
+z_{k+1} &= z_k - \Delta t\cdot\alpha\sigma_k, \label{eq:disc_z}
 \end{align}
-其中~$k=0,1,\dots,N-1$。值得注意的是，位置方程采用显式积分（用当前步速度更新下一步位置），速度方程中的重力项~$\bm g$作为已知常数处理。对于~$\Delta t = 2.7$~s的时间步长，前向欧拉法的局部截断误差为~$O(\Delta t^2)$，全局截断误差为~$O(\Delta t)$，在制导问题的工程精度要求下可以接受。
+其中$k=0,\dots,N-1$，$\Delta t = t_f/N = 81/30 = 2.7$~s。重力向量$\bm g=[-g,\,0,\,0]^{\top}$（$g=3.7114$~m/s$^2$，仅作用于$x$方向）。
 
-方程~\eqref{eq:disc_r}--\eqref{eq:disc_z}可展开为~$7$个标量方程，清晰地展示了每个状态分量的递推关系：
+展开为7个标量方程（与C代码\lstinline{MarsLanding.c}第246--290行完全一致）：
 \begin{align}
-r_{x,k+1} &= r_{x,k} + \Delta t\cdot v_{x,k},\\
-r_{y,k+1} &= r_{y,k} + \Delta t\cdot v_{y,k},\\
-r_{z,k+1} &= r_{z,k} + \Delta t\cdot v_{z,k},\\[4pt]
-v_{x,k+1} &= v_{x,k} + \Delta t\cdot u_{x,k},\\
-v_{y,k+1} &= v_{y,k} + \Delta t\cdot u_{y,k},\\
-v_{z,k+1} &= v_{z,k} + \Delta t\cdot(u_{z,k} - g),\\[4pt]
-z_{k+1} &= z_k - \Delta t\cdot\alpha\sigma_k.
+r_{x,k+1} &= r_{x,k} + \Delta t\cdot v_{x,k} + \tfrac{1}{2}\Delta t^2\cdot u_{x,k} - \tfrac{1}{2}g\,\Delta t^2, \label{eq:disc_rx} \\
+r_{y,k+1} &= r_{y,k} + \Delta t\cdot v_{y,k} + \tfrac{1}{2}\Delta t^2\cdot u_{y,k}, \\
+r_{z,k+1} &= r_{z,k} + \Delta t\cdot v_{z,k} + \tfrac{1}{2}\Delta t^2\cdot u_{z,k}, \\[4pt]
+v_{x,k+1} &= v_{x,k} + \Delta t\cdot u_{x,k} - g\,\Delta t, \label{eq:disc_vx} \\
+v_{y,k+1} &= v_{y,k} + \Delta t\cdot u_{y,k}, \\
+v_{z,k+1} &= v_{z,k} + \Delta t\cdot u_{z,k}, \\[4pt]
+z_{k+1} &= z_k - \Delta t\cdot\alpha\,\sigma_k. \label{eq:disc_z_scalar}
 \end{align}
+
+在ECOS的$Ax=b$标准形式中，方程\eqref{eq:disc_rx}写为等式约束$+r_{x,k} + \Delta t\,v_{x,k} + \frac{1}{2}\Delta t^2 u_{x,k} - r_{x,k+1} = +\frac{1}{2}g\Delta t^2$——重力项以正值出现在$b$向量右侧，即C代码中\lstinline{CRS_ROW(g * 0.5 * dt * dt)}。这是理解C手写矩阵构造中$b$向量符号的关键。
 
 \subsubsection{边界条件的离散化}
 
@@ -421,7 +423,7 @@ z_{k+1} &= z_k - \Delta t\cdot\alpha\sigma_k.
 
 表~\ref{tab:problem_size}汇总了离散SOCP问题的完整规模统计。
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{离散SOCP问题规模统计}
 \label{tab:problem_size}

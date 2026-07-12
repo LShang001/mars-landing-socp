@@ -10,7 +10,7 @@
 
 本文所研究的火星动力下降段着陆器物理参数如表\ref{tab:params}所示。
 
-\begin{table}[htbp]
+\begin{table}[H]
     \centering
     \caption{火星动力下降段物理参数}
     \label{tab:params}
@@ -51,24 +51,19 @@
 
 式\eqref{eq:dr}是位置与速度之间的运动学关系，式\eqref{eq:dv}是牛顿第二定律的矢量形式——着陆器加速度由重力项和控制加速度项（推力除以质量）两部分构成。式\eqref{eq:dm}为质量消耗方程，描述了推进剂消耗速率与推力幅值之间的正比关系。
 
-系数$\alpha$的物理含义为单位推力所对应的质量消耗率。根据火箭发动机的比冲定义，推力大小$\|\bm{T}_{\mathrm{total}}\|$与质量流率$\dot{m}$之间满足
+系数$\alpha$为单位推力幅值对应的质量消耗率。根据火箭发动机比冲定义，推力幅值与推进剂质量流率的关系为
 \begin{align}
-    \|\bm{T}_{\mathrm{total}}\| = I_{\mathrm{sp}}\,g_0\,(-\dot{m})\cos\phi,
+    \|\bm{T}_{\mathrm{total}}\| = n_T\,I_{\mathrm{sp}}\,g_0\,(-\dot{m}/n_T)\cos\phi
+                               = I_{\mathrm{sp}}\,g_0\,(-\dot{m})\cos\phi,
 \end{align}
-其中$g_0 = 9.80665\;\mathrm{m/s^2}$为地球标准重力加速度。需要特别说明的是，式中$\cos\phi$修正项之所以出现，是因为$\dot{m}$对应的是发动机推进剂的总消耗率，而推力沿发动机轴线的分量需要乘以$\cos\phi$才能投影到$x$方向（同时沿$x$方向产生制动减速的推力分量）。然而，式\eqref{eq:dm}中$\alpha$作用于总推力幅值$\|\bm{T}_{\mathrm{total}}\|$，推导时需考虑总推力与轴向推力的区别。从推进系统能量角度推导，推进剂消耗率由所有发动机的总功率决定，与安装倾角无关，因此严格的质量消耗率为
+其中$g_0 = 9.80665\;\mathrm{m/s^2}$为地球标准重力加速度（用于比冲定义），$\cos\phi$因子来源于发动机推力沿轴向的分量。整理得
 \begin{align}
-    \dot{m} = -\frac{\|\bm{T}_{\mathrm{total}}\|}{I_{\mathrm{sp}}\,g_0}.
-\end{align}
-
-对比式\eqref{eq:dm}可得$\alpha$的真实定义。在安装倾角$\phi$的配置下，若想要以等效推力矢量模型描述动力学，常用的处理方式有两种。第一种方式是将安装倾角的影响吸收进比冲参数：
-\begin{align}
-    \alpha = \frac{1}{I_{\mathrm{sp}}\,g_0}, \label{eq:alpha_true}
-\end{align}
-
-此时式\eqref{eq:dm}中的推力须理解为各发动机轴向推力的等效合力。为与此前文献中的约定保持一致，本文采用另一种等价形式：
-\begin{align}
+    \dot{m} = -\frac{\|\bm{T}_{\mathrm{total}}\|}{I_{\mathrm{sp}}\,g_0\cos\phi}
+            \triangleq -\alpha\,\|\bm{T}_{\mathrm{total}}\|,
+    \qquad
     \alpha = \frac{1}{I_{\mathrm{sp}}\,g_0\cos\phi}. \label{eq:alpha}
 \end{align}
+该定义与代码实现\cite{acikmese2007lossless}一致（见\texttt{mars\_params.py}: \texttt{alpha = 1.0/(I\_sp * g\_earth * cos(phi))}）。
 
 将式\eqref{eq:dv}按各轴分量展开，得到三个标量微分方程：
 \begin{align}
@@ -209,7 +204,7 @@ $n_T$台发动机的总推力向量为各台推力向量之和：
 \end{align}
 其中$\theta = 86^\circ$为最大允许下滑角，$\tan 86^\circ \approx 14.30$。该约束的几何意义如图\ref{fig:glideslope}所示，它定义了以$x$轴线为中心轴、半顶角为$86^\circ$的倒锥形安全走廊，着陆器的三维位置$[r_x, r_y, r_z]$必须在锥体内部。
 
-\begin{figure}[htbp]
+\begin{figure}[H]
     \centering
     \begin{tikzpicture}[scale=0.6]
         \draw[->] (0,0) -- (5,0) node[right]{$r_y$};

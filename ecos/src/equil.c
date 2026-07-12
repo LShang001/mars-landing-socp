@@ -15,9 +15,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * [本地修改] 已剥离上游 v2.0.10 中 EXPCONE 均衡化代码块 (~25 行)。
- * 如需恢复可对比官方 embotech/ecos v2.0.10。
  */
 
 /* Equilibration module (c) Eric Chu, March 2014 */
@@ -154,6 +151,19 @@ void use_alternating_norm_equilibration(pwork *w)
       ind += w->C->soc[i].p;
     }
 
+#ifdef EXPCONE
+    for(i = 0; i < w->C->nexc; i++) {
+      sum = 0.0;
+      for(j = 0; j < 3; j++) {
+        sum += w->Gequil[ind + j];
+      }
+      for(j = 0; j < 3; j++) {
+        w->Gequil[ind + j] = sum / 3.0;
+      }
+      ind += 3;
+    }
+#endif
+
     /* get the norm */
     for(i = 0; i < num_A_rows; i++) {
       w->Aequil[i] = fabs(w->Aequil[i]) < 1e-6 ? 1.0 : sqrt(w->Aequil[i]);
@@ -261,6 +271,20 @@ void use_ruiz_equilibration(pwork *w)
           }
           ind += w->C->soc[i].p;
         }
+#ifdef EXPCONE
+       /*Do the same for the exponential cones*/
+       for(i = 0; i < w->C->nexc; i++) {
+         total = 0.0;
+         for(j = 0; j < 3; j++) {
+           total += Gtmp[ind + j];
+         }
+         for(j = 0; j < 3; j++) {
+           Gtmp[ind + j] = total;
+         }
+         ind += 3;
+       }
+#endif
+
 
         /* take the sqrt */
         for(i = 0; i < num_cols; i++) {

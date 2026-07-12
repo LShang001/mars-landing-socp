@@ -106,6 +106,8 @@ target_compile_options(ecos_avx PRIVATE
 target_compile_definitions(ecos_avx PRIVATE
     ECOS_USE_AVX=1
     ECOS_ALIGNMENT=32
+    PROFILING=2
+    CTRLC=0
 )
 
 target_link_libraries(ecos_avx PRIVATE m)
@@ -129,6 +131,8 @@ target_compile_options(ecos_scalar PRIVATE
 target_compile_definitions(ecos_scalar PRIVATE
     ECOS_USE_AVX=0
     ECOS_ALIGNMENT=32
+    PROFILING=2
+    CTRLC=0
 )
 
 target_link_libraries(ecos_scalar PRIVATE m)

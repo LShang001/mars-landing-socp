@@ -371,7 +371,7 @@ int main(void)
 
     /* 6.1 初始化求解器 */
     idxint exitflag = ECOS_FATAL;
-    pwork* mywork = ECOS_setup(N_VAR, M_G, P_EQ, L_G, NCONES, q,
+    pwork* mywork = ECOS_setup(N_VAR, M_G, P_EQ, L_G, NCONES, q, 0,
                                 CCGpr, CCGjc, CCGir,
                                 CCApr, CCAjc, CCAir,
                                 c, h, b);

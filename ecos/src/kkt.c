@@ -15,9 +15,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * [本地修改] 已剥离上游 v2.0.10 中 EXPCONE 代码块 (~30 行)。
- * 如需恢复可对比官方 embotech/ecos v2.0.10。
  */
 
 
@@ -68,6 +65,7 @@ idxint kkt_factor(kkt* KKT, pfloat eps, pfloat delta)
                       , t1, t2
 #endif
     );
+
 	return nd == KKT->PKPt->n ? KKT_OK : KKT_PROBLEM;
 }
 
@@ -196,6 +194,19 @@ idxint kkt_solve(kkt* KKT, spmat* A, spmat* G, pfloat* Pb, pfloat* dx, pfloat* d
             kk += 2;
 #endif
         }
+#ifdef EXPCONE
+        for(l=0; l<C->nexc; l++)
+        {
+            for(i=0;i<3;i++)
+            {
+#if (defined STATICREG) && (STATICREG > 0)
+                ez[kk++] = Pb[Pinv[k++]] - Gdx[j++] + DELTASTAT*dz[dzoffset++];
+#else
+				ez[kk++] = Pb[Pinv[k++]] - Gdx[j++];
+#endif
+            }
+        }
+#endif
         for( i=0; i<MTILDE; i++) { truez[i] = Px[Pinv[n+p+i]]; }
         if( isinit == 0 ){
             scale2add(truez, ez, C);
@@ -330,6 +341,18 @@ void kkt_update(spmat* PKP, idxint* P, cone *C)
         }
 #endif
 	}
+    #if defined EXPCONE
+    /* Exponential cones */
+    for( i=0; i < C->nexc; i++){
+        PKP->pr[P[C->expc[i].colstart[0]]]   = -C->expc[i].v[0]-DELTASTAT;
+        PKP->pr[P[C->expc[i].colstart[1]]]   = -C->expc[i].v[1];
+        PKP->pr[P[C->expc[i].colstart[1]+1]] = -C->expc[i].v[2]-DELTASTAT;
+        PKP->pr[P[C->expc[i].colstart[2]]]   = -C->expc[i].v[3];
+        PKP->pr[P[C->expc[i].colstart[2]+1]] = -C->expc[i].v[4];
+        PKP->pr[P[C->expc[i].colstart[2]+2]] = -C->expc[i].v[5]-DELTASTAT;
+    }
+#endif
+
 
 }
 

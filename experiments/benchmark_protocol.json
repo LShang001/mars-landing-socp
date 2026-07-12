@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "host_measured",
+  "warmup_runs": 10,
+  "measured_runs": 1000,
+  "clock": "CLOCK_MONOTONIC_RAW",
+  "scopes": [
+    "matrix_update",
+    "setup",
+    "solve",
+    "control_extract",
+    "end_to_end"
+  ],
+  "precision": "double",
+  "build_type": "Release",
+  "outlier_policy": "none",
+  "statistics": ["p50", "p95", "p99", "max"],
+  "forbidden_platform_labels": [
+    "ARM", "ARM64", "AARCH64", "CORTEX", "RISC-V", "MCU", "EMBEDDED"
+  ]
+}

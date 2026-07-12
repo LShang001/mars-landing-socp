@@ -60,6 +60,10 @@ mars-landing-socp/
 │   ├── mars_solve.py           # Python 多求解器交叉验证 (CVXPY + CasADi/IPOPT)
 │   ├── mars_model.py           # CasADi 建模 + 矩阵验证
 │   └── mars_codegen.py         # CasADi → C 头文件代码生成
+├── docs/                       # 经验文档 (可复用参考)
+│   ├── ecos-soc-convention.md  # ECOS SOC 锥符号约定
+│   ├── ipopt-cross-validation.md  # IPOPT 交叉验证方法
+│   └── debugging-methodology.md   # SOCP 调试方法论
 ├── ecos/                       # ECOS v2.0.10 官方满血版 (含指数锥)
 │   ├── src/                    # 13 个 .c 文件
 │   ├── include/                # 14 个 .h 文件
@@ -122,10 +126,24 @@ cd ../build && make -j4       # 重新编译
 6. **ECOS 2.0.10 是官方满血版**: 我们的 ecos/ 目录来自官方 v2.0.10 (embotech/ecos) + 额外文件 expcone.c/wright_omega.c。ECOS 实例的 PROFILING=2 和 CTRLC=0 通过 CMake 定义。
 7. **CasADi DM 赋值**: `float(DM[i])` 或 `.nz` 访问, 不能 `list()` 迭代。
 8. **Python ecos.solve 签名**: `ecos.solve(c, G, h, dims, A=A, b=b)`, 不是 `ecos.solve(c, G, dims, A, b, h)`。
+9. **CasADi b/h 提取公式**: `b = -eq(0)`, `h = -ineq(0)`，不是 `-A@x+eq`。旧版 mars_model.py 曾用后一种公式导致 b/h 符号错误。验证方法：b[0] 应等于 r₀[0]=1500（正数），b[13]=½g·dt²=13.528（正数）。
+10. **IPOPT 不能直接用 SOC 锥**: IPOPT 不支持 `||x|| ≤ t` 形式，必须在 NLP 中写为光滑等价形式 `t² - x₁² - ... ≥ 0` 且 `t ≥ 0`。把 SOC 拆成标量 `rx≥0, ry≥0, rz≥0` 是错误做法——丢失了范数约束，结果偏差可达 23%。
 
 ---
 
-## 七、验证基准
+## 七、经验文档索引
+
+项目 `docs/` 目录包含可复用的深度参考文档，修改代码前建议查阅：
+
+| 文档 | 内容 | 适用场景 |
+|------|------|----------|
+| [docs/ecos-soc-convention.md](docs/ecos-soc-convention.md) | ECOS SOC 锥符号约定、h-Gx ∈ K 推导、CasADi 提取公式 | 新增/修改 SOC 约束时 |
+| [docs/ipopt-cross-validation.md](docs/ipopt-cross-validation.md) | IPOPT 光滑等价形式、与 SOCP 对比、交叉验证方法 | 求解器结果不一致时 |
+| [docs/debugging-methodology.md](docs/debugging-methodology.md) | L1-L3 分级排查流程、关键行快速验证、典型案例 | 任何调试场景 |
+
+---
+
+## 八、验证基准
 
 **黄金标准**: 所有求解器必须输出 `400.7 kg` 燃料消耗。
 
@@ -146,7 +164,7 @@ cd build && make -j4 && \
 
 ---
 
-## 八、多求解器交叉验证
+## 九、多求解器交叉验证
 
 | 版本 | 求解器 | 建模方式 | 燃料 | 偏差 |
 |------|--------|----------|------|------|
@@ -159,7 +177,7 @@ cd build && make -j4 && \
 
 ---
 
-## 九、代码风格
+## 十、代码风格
 
 - 中文注释 (物理/数学以中文为主, 符号保留英文)
 - 变量命名: 状态用 `r_x, v_x, z`, 控制用 `u_x, σ` (sigma)
@@ -169,7 +187,7 @@ cd build && make -j4 && \
 
 ---
 
-## 十、Git 协同
+## 十一、Git 协同
 
 - 仓库: `git@github.com:LShang001/mars-landing-socp.git`
 - 分支: 直接推 master (无 PR 流程, 无分支保护)
@@ -178,7 +196,7 @@ cd build && make -j4 && \
 
 ---
 
-## 十一、相关资源
+## 十二、相关资源
 
 - ECOS 官方: https://github.com/embotech/ecos
 - CasADi: https://web.casadi.org/

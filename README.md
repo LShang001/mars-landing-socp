@@ -18,11 +18,21 @@
 
 ```
 ecos-cn-raspberry/
-├── CMakeLists.txt              # CMake 构建配置（双目标）
+├── CMakeLists.txt              # CMake 构建配置（3 目标: avx, scalar, auto）
+├── AGENTS.md                   # 项目手册（AI 自动加载）
 ├── MarsLanding/
 │   ├── MarsLanding.h           # 问题参数头文件（维度、非零元统计）
 │   ├── MarsLanding.c           # 主求解程序（手写稀疏矩阵 + ECOS求解）
-│   └── CRM2CCM.c               # 稀疏矩阵 CRS → CCS 格式转换
+│   ├── MarsLandingAuto.c       # 自动建模版（CasADi 生成 CCS）
+│   ├── MarsLandingAutoData.h   # CasADi 生成的 CCS 矩阵数据
+│   ├── CRM2CCM.c               # 稀疏矩阵 CRS → CCS 格式转换
+│   ├── mars_solve.py           # Python 多求解器交叉验证
+│   ├── mars_model.py           # CasADi 建模 + 矩阵验证
+│   └── mars_codegen.py         # CasADi → C 头文件代码生成
+├── docs/                       # 经验文档（可复用参考）
+│   ├── ecos-soc-convention.md
+│   ├── ipopt-cross-validation.md
+│   └── debugging-methodology.md
 ├── ecos/
 │   ├── include/                # ECOS 头文件
 │   │   ├── ecos.h              # 主头文件（版本 2.0.10，求解器参数）
@@ -89,8 +99,8 @@ z_{k+1} = z_k - α·s_k·dt
 | 约束类型 | 数学形式 | 用途 |
 |----------|----------|------|
 | **边界约束** | `x_0 = x_init`, `x_N = x_final` | 固定初始终端状态 |
-| **推力锥约束**（SOC） | `||u_k|| ≤ s_k` (q=3) | 推力大小松弛 |
-| **下滑角约束**（SOC） | `||[rx, ry]|| ≤ rz·tan(θ)` (q=4) | 防撞地 |
+| **推力锥约束**（SOC） | `||[ux,uy,uz]|| ≤ σ_k` (q=4) | 推力大小松弛 |
+| **下滑角约束**（SOC） | `||[ry,rz]|| ≤ rx·tan(θ)` (q=3) | 防撞地 (rx=高度) |
 | **质量下界** | `z_k ≥ ln(m_0 - α·ρ_2·t_k)` | 干重约束 |
 | **质量上界** | `z_k ≤ ln(m_0 - α·ρ_1·t_k)` | 燃料上限 |
 
@@ -232,7 +242,20 @@ AMD 排序库和 LDL 分解库完全一致。
 
 ---
 
-## 九、参考资料
+## 九、文档与经验库
+
+项目包含系统化的开发经验和调试文档，新贡献者和 AI 协作者建议按以下顺序阅读：
+
+1. **[AGENTS.md](AGENTS.md)** — 项目手册（AI 自动加载）。物理约定、已知陷阱（10 条）、验证基准、交叉验证矩阵
+2. **[docs/ecos-soc-convention.md](docs/ecos-soc-convention.md)** — ECOS SOC 锥符号约定（`h-Gx ∈ K` 推导、CasADi 提取公式、验证清单）
+3. **[docs/ipopt-cross-validation.md](docs/ipopt-cross-validation.md)** — IPOPT NLP 光滑等价形式交叉验证 SOCP 的方法论
+4. **[docs/debugging-methodology.md](docs/debugging-methodology.md)** — L1-L3 分级排查流程、关键行快速验证、典型案例
+
+> 所有文档均为项目内 markdown 文件，不依赖任何特定 AI 工具，任何协作者均可阅读。
+
+---
+
+## 十、参考资料
 
 - ECOS: Embedded Conic Solver, ETH Zurich / embotech GmbH
 - Acikmese & Ploen (2007): "Convex Programming Approach to Powered Descent Guidance for Mars Landing"

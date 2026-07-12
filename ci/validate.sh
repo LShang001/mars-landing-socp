@@ -56,8 +56,17 @@ r=$(run_py "from mars_solve import solve_ipopt; f,_=solve_ipopt(); print(f'{f:.1
 check "CasADi+IPOPT  " "$r"
 
 if [ "${1:-}" = "--full" ]; then
+    echo ""; echo "--- 扩展测试 ---"
     r=$(run_py "from mars_acados import solve_acados; r=solve_acados(); print('RESULT='+f'{r[0]:.1f}' if r else 'RESULT=FAIL')" | grep 'RESULT=' | cut -d= -f2)
     check "acados SQP    " "$r"
+    r=$(run_py "from mars_robustness import monte_carlo; rate,_=monte_carlo(20); print(f'RATE={rate:.0f}')" | grep 'RATE=' | cut -d= -f2)
+    if [ -n "$r" ] && [ "$r" -gt 40 ]; then
+        echo -e "  ${GREEN}✅${NC} Monte Carlo : ${r}% success"
+        PASS=$((PASS+1))
+    else
+        echo -e "  ${RED}❌${NC} Monte Carlo : ${r}% (< 40%)"
+        FAIL=$((FAIL+1))
+    fi
 fi
 
 # --- Summary ---

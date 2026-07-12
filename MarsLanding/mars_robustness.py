@@ -19,6 +19,9 @@
 
 import sys
 import time
+import json
+import tempfile
+from pathlib import Path
 
 import cvxpy as cp
 import numpy as np
@@ -75,44 +78,20 @@ def solve_one(r0, v0, verbose=False):
 # ======================== Monte Carlo ========================================
 
 def monte_carlo(n_samples=100):
-    """随机采样初始条件, 统计成功率"""
-    print(f"\n{'=' * 60}")
-    print(f"  Monte Carlo 鲁棒性测试 ({n_samples} 组)")
-    print(f"{'=' * 60}")
+    """兼容旧 API，实际执行规范清单并局部聚合 JSONL。"""
+    root = Path(__file__).resolve().parents[1]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    from experiments.run_monte_carlo import run_experiment
 
-    rng = np.random.RandomState(42)
-    # 采样范围: 位置 ±50%, 速度 ±100%
-    rx_range = [500, 3000]
-    rz_range = [500, 3000]
-    vx_range = [-150, 0]
-    vz_range = [0, 200]
-
-    fuels = []
-    failures = 0
-    t0 = time.perf_counter()
-    for i in range(n_samples):
-        r0 = np.array([rng.uniform(*rx_range), 0, rng.uniform(*rz_range)])
-        v0 = np.array([rng.uniform(*vx_range), 0, rng.uniform(*vz_range)])
-        fuel, ok = solve_one(r0, v0)
-        if ok:
-            fuels.append(fuel)
-        else:
-            failures += 1
-        if (i + 1) % max(1, n_samples // 10) == 0:
-            print(f"  {i + 1}/{n_samples}...")
-
-    t1 = time.perf_counter()
-    fuels = np.array(fuels)
-    rate = 100 * (1 - failures / n_samples)
-
-    print(f"\n  结果:")
-    print(f"    成功率: {rate:.1f}% ({n_samples - failures}/{n_samples})")
-    print(f"    燃料: mean={np.mean(fuels):.1f} std={np.std(fuels):.1f} "
-          f"min={np.min(fuels):.1f} max={np.max(fuels):.1f} kg")
-    print(f"    基准: 400.7 kg")
-    print(f"    耗时: {t1 - t0:.1f}s ({1000 * (t1 - t0) / n_samples:.0f}ms/组)")
-
-    return rate, np.mean(fuels) if len(fuels) > 0 else 0
+    manifest = root / "experiments/scenarios/near_nominal_v1.json"
+    with tempfile.TemporaryDirectory() as directory:
+        output = Path(directory) / "results.jsonl"
+        run_experiment(manifest, output, n_samples)
+        records = [json.loads(line) for line in output.read_text().splitlines()]
+    fuels = [record["metrics"]["fuel_kg"] for record in records if record["success"]]
+    rate = 100.0 * len(fuels) / len(records)
+    return rate, float(np.mean(fuels)) if fuels else 0
 
 
 # ======================== Sensitivity ========================================

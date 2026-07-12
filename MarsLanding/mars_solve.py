@@ -39,15 +39,18 @@ def _ensure_cvxpy_solution(prob):
 
 # ========================== CVXPY (共享建模) ================================
 
-def _build_cvxpy():
+def _build_cvxpy(initial_r0=None, initial_v0=None):
     """构造 CVXPY SOCP 问题 (ECOS 和 Clarabel 共用)"""
+    initial_r0 = r0 if initial_r0 is None else np.asarray(initial_r0, dtype=float)
+    initial_v0 = v0 if initial_v0 is None else np.asarray(initial_v0, dtype=float)
     r = [cp.Variable(3) for _ in range(N+1)]
     v = [cp.Variable(3) for _ in range(N+1)]
     z = [cp.Variable(1) for _ in range(N+1)]
     u = [cp.Variable(3) for _ in range(N+1)]
     s = [cp.Variable(1) for _ in range(N+1)]
 
-    cst = [r[0] == r0, v[0] == v0, z[0] == np.log(m0), r[N] == 0, v[N] == 0]
+    cst = [r[0] == initial_r0, v[0] == initial_v0,
+           z[0] == np.log(m0), r[N] == 0, v[N] == 0]
 
     for k in range(N):
         cst += [r[k+1] == r[k] + v[k]*dt + 0.5*u[k]*dt*dt - 0.5*gv*dt*dt]
@@ -67,9 +70,9 @@ def _build_cvxpy():
     return prob, {"r": r, "v": v, "z": z, "u": u, "sigma": s}
 
 
-def solve_cvxpy(solver, return_full=False) -> tuple:
+def solve_cvxpy(solver, return_full=False, initial_r0=None, initial_v0=None) -> tuple:
     """CVXPY 通用求解；可选返回轨迹和求解器元数据。"""
-    prob, variables = _build_cvxpy()
+    prob, variables = _build_cvxpy(initial_r0, initial_v0)
     solver_name = str(solver).split('.')[-1].split("'")[0]
     prob.solve(solver=solver, verbose=False)
     _ensure_cvxpy_solution(prob)

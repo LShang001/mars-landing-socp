@@ -15,8 +15,17 @@ class ContractTests(unittest.TestCase):
             "input": {"r0_m": [1500.0, 0.0, 2000.0], "v0_mps": [-75.0, 0.0, 100.0]},
             "solver": "cvxpy_ecos", "solver_status": "optimal",
             "classification": "success", "success": True,
+            "error_type": "none",
             "metrics": {"fuel_kg": 400.7},
-            "provenance": {"manifest_sha256": "a" * 64},
+            "provenance": self._provenance(),
+        }
+
+    def _provenance(self):
+        return {
+            "manifest_sha256": "a" * 64, "platform": "Linux-x86_64",
+            "python_version": "3.12.3", "numpy_version": "2.0.0",
+            "cvxpy_version": "1.6.0", "ecos_version": "2.0.14",
+            "git_commit": "b" * 40,
         }
 
     def test_valid_scenario(self):
@@ -50,7 +59,8 @@ class ContractTests(unittest.TestCase):
             "input": {"r0_m": [1500.0, 0.0, 2000.0], "v0_mps": [-75.0, 0.0, 100.0]},
             "solver": "cvxpy_ecos", "solver_status": "infeasible",
             "classification": "solver_infeasible", "success": False,
-            "metrics": {}, "provenance": {"manifest_sha256": "a" * 64},
+            "error_type": "none",
+            "metrics": {}, "provenance": self._provenance(),
         })
 
     def test_rejects_non_hex_manifest_digest(self):
@@ -60,8 +70,36 @@ class ContractTests(unittest.TestCase):
                 "input": {"r0_m": [1500.0, 0.0, 2000.0], "v0_mps": [-75.0, 0.0, 100.0]},
                 "solver": "cvxpy_ecos", "solver_status": "infeasible",
                 "classification": "solver_infeasible", "success": False,
-                "metrics": {}, "provenance": {"manifest_sha256": "g" * 64},
+                "error_type": "none",
+                "metrics": {}, "provenance": {**self._provenance(), "manifest_sha256": "g" * 64},
             })
+
+    def test_result_requires_exact_safe_provenance_strings(self):
+        for field in self._provenance():
+            with self.subTest(field=field):
+                result = self._result()
+                del result["provenance"][field]
+                with self.assertRaises(ContractError):
+                    validate_result(result)
+        result = self._result()
+        result["provenance"]["platform"] = {"environment": "secret"}
+        with self.assertRaises(ContractError):
+            validate_result(result)
+
+    def test_result_error_type_is_whitelisted_and_only_used_for_solver_error(self):
+        result = self._result()
+        result.update(classification="solver_error", success=False,
+                      solver_status="exception", error_type="Exception")
+        validate_result(result)
+        for error_type in ("RuntimeError: secret", "", 1):
+            with self.subTest(error_type=error_type):
+                result["error_type"] = error_type
+                with self.assertRaises(ContractError):
+                    validate_result(result)
+        result = self._result()
+        result["error_type"] = "Exception"
+        with self.assertRaises(ContractError):
+            validate_result(result)
 
     def test_rejects_non_integer_sample_count(self):
         for sample_count in (1.5, True):

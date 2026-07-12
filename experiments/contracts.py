@@ -14,12 +14,17 @@ SCENARIO_FIELDS = {
 }
 RESULT_FIELDS = {
     "schema_version", "scenario_id", "sample_id", "input", "solver",
-    "solver_status", "classification", "success", "metrics", "provenance",
+    "solver_status", "classification", "success", "error_type", "metrics", "provenance",
 }
 VECTOR_FIELDS = {"r0_m", "v0_mps"}
 PERTURBATION_FIELDS = {"distribution", "half_width"}
 TOLERANCE_FIELDS = {"terminal_m", "terminal_mps", "dynamics", "cone", "mass_kg"}
 CLASSIFICATIONS = {"success", "solver_infeasible", "solver_error", "physical_violation"}
+ERROR_TYPES = {"none", "CvxpySolveError", "Exception"}
+PROVENANCE_FIELDS = {
+    "manifest_sha256", "platform", "python_version", "numpy_version",
+    "cvxpy_version", "ecos_version", "git_commit",
+}
 
 
 def _require_mapping(value, label):
@@ -124,6 +129,11 @@ def validate_result(value):
         raise ContractError("success must be a boolean")
     if success != (classification == "success"):
         raise ContractError("success and classification must agree")
+    error_type = value["error_type"]
+    if error_type not in ERROR_TYPES:
+        raise ContractError("unsupported result error_type")
+    if (classification == "solver_error") != (error_type != "none"):
+        raise ContractError("error_type must be set only for solver_error")
 
     metrics = value["metrics"]
     _require_mapping(metrics, "metrics")
@@ -131,7 +141,9 @@ def validate_result(value):
         raise ContractError("metrics values must be finite real scalars")
 
     provenance = value["provenance"]
-    _require_exact_fields(provenance, {"manifest_sha256"}, "provenance")
+    _require_exact_fields(provenance, PROVENANCE_FIELDS, "provenance")
     digest = provenance["manifest_sha256"]
     if not isinstance(digest, str) or re.fullmatch(r"[0-9a-fA-F]{64}", digest) is None:
         raise ContractError("manifest_sha256 must contain 64 hexadecimal characters")
+    for name in PROVENANCE_FIELDS - {"manifest_sha256"}:
+        _require_nonempty_string(provenance[name], f"provenance {name}")

@@ -153,6 +153,20 @@ class SolutionAuditTests(unittest.TestCase):
         self.assertEqual(classify_metrics(solution["solver_status"], metrics, self.tolerances),
                          "physical_violation")
 
+    def test_solve_cvxpy_initial_state_override_does_not_mutate_globals(self):
+        import cvxpy as cp
+        import mars_solve
+
+        original_r0 = mars_solve.r0.copy()
+        original_v0 = mars_solve.v0.copy()
+        mars_solve.solve_cvxpy(
+            cp.ECOS, return_full=True,
+            initial_r0=original_r0 + [1.0, 0.0, 0.0],
+            initial_v0=original_v0 + [1.0, 0.0, 0.0],
+        )
+        np.testing.assert_array_equal(mars_solve.r0, original_r0)
+        np.testing.assert_array_equal(mars_solve.v0, original_v0)
+
 
 if __name__ == "__main__":
     unittest.main()

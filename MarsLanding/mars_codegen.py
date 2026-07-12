@@ -56,10 +56,13 @@ eq = []
 eq += [rx(0)-r_0[0], ry(0)-r_0[1], rz(0)-r_0[2], vx(0)-v_0[0], vy(0)-v_0[1], vz(0)-v_0[2], z(0)-np.log(m_0)]
 eq += [rx(N), ry(N), rz(N), vx(N), vy(N), vz(N)]
 for k in range(N):
-    eq += [rx(k+1)-rx(k)-vx(k)*dt-0.5*ux(k)*dt*dt-0.5*g*dt*dt,
+    # FIX: 重力向下(-g). 等式约束: r(k+1)=r(k)+v*dt+0.5*u*dt²-0.5*g*dt²
+    #  → eq: r(k+1)-r(k)-v*dt-0.5*u*dt²+0.5*g*dt²=0  (only rx has gravity)
+    #  v(k+1)=v(k)+u*dt-g*dt → eq: v(k+1)-v(k)-u*dt+g*dt=0  (only vx)
+    eq += [rx(k+1)-rx(k)-vx(k)*dt-0.5*ux(k)*dt*dt+0.5*g*dt*dt,
            ry(k+1)-ry(k)-vy(k)*dt-0.5*uy(k)*dt*dt,
            rz(k+1)-rz(k)-vz(k)*dt-0.5*uz(k)*dt*dt,
-           vx(k+1)-vx(k)-ux(k)*dt-g*dt,
+           vx(k+1)-vx(k)-ux(k)*dt+g*dt,
            vy(k+1)-vy(k)-uy(k)*dt,
            vz(k+1)-vz(k)-uz(k)*dt,
            z(k+1)-z(k)+alpha*s(k)*dt]

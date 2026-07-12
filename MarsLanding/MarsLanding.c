@@ -241,6 +241,8 @@ int main(void)
      *                      -z_{k+1} + z_k - α·σ_k·dt         = 0            */
     for (k = 0; k < N; k++) {
         /* ---- 位置: rx ---- */
+    /* 约束: +rx_k + dt·vx_k + ½dt²·ux_k - rx_{k+1} = -½g·dt²        */
+    /* 显式:  rx_{k+1} = rx_k + dt·vx_k + ½dt²·ux_k - ½g·dt²          */
         CRS_PUSH(VAR_IDX(k, 0),     1.0);              /* +rx_k         */
         CRS_PUSH(VAR_IDX(k, 3),     dt);               /* +vx_k · dt    */
         CRS_PUSH(VAR_IDX(k, NX + 0), 0.5 * dt * dt);   /* +½ux_k · dt²  */

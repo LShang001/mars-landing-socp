@@ -15,6 +15,10 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * [本地修改] 已剥离上游 v2.0.10 中 EXPCONE 相关代码 (expcone.h 引用,
+ * unitInitialization 函数中的指数锥分支, ~35 行)。
+ * 如需恢复可对比官方 embotech/ecos v2.0.10。
  */
 
 

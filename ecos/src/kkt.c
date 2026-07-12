@@ -15,6 +15,9 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * [本地修改] 已剥离上游 v2.0.10 中 EXPCONE 代码块 (~30 行)。
+ * 如需恢复可对比官方 embotech/ecos v2.0.10。
  */
 
 

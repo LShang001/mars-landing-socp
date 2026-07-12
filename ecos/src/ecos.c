@@ -15,6 +15,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * [本地修改] 已剥离上游 v2.0.10 中所有 EXPCONE (指数锥) 代码块。
+ * 理由: 火星着陆/VTVL 项目仅使用 SOCP (二阶锥), 指数锥增加代码量
+ * 且 EXPCONE 宏从未定义, 属于死代码。移除后减少 ~55 行。
+ * 如有需要可对比官方源恢复: embotech/ecos v2.0.10
  */
 
 /* Main solver module */

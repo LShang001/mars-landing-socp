@@ -15,6 +15,10 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * [本地修改] 已剥离上游 v2.0.10 中 EXPCONE 相关代码: exp_cone_strt 变量声明,
+ * nnzK 指数锥非零元计数, 指数锥正则化符号设置 (~20 行)。
+ * 如需恢复可对比官方 embotech/ecos v2.0.10。
  */
 
 

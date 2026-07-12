@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "scenario_id": "near_nominal_v1",
+  "kind": "monte_carlo",
+  "seed": 42,
+  "sample_count": 1000,
+  "nominal": {"r0_m": [1500.0, 0.0, 2000.0], "v0_mps": [-75.0, 0.0, 100.0]},
+  "perturbations": {
+    "r0_m": {"distribution": "uniform_delta", "half_width": [200.0, 0.0, 200.0]},
+    "v0_mps": {"distribution": "uniform_delta", "half_width": [20.0, 0.0, 20.0]}
+  },
+  "solver": "cvxpy_ecos",
+  "tolerances": {"terminal_m": 0.00001, "terminal_mps": 0.00001,
+                 "dynamics": 0.000001, "cone": 0.0000001, "mass_kg": 0.0001}
+}

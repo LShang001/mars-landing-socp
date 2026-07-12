@@ -1,4 +1,55 @@
-\begin{thebibliography}{1}
+\begin{thebibliography}{10}
+
+\bibitem{braun2007mars}
+R.~D. Braun and R.~M. Manning, ``Mars exploration entry, descent, and landing
+  challenges,'' {\em Journal of Spacecraft and Rockets}, vol.~44, no.~2,
+  pp.~310--323, 2007.
+
+\bibitem{steltzner2013msl}
+A.~Steltzner {\em et~al.}, ``Mars science laboratory entry, descent, and
+  landing system overview,'' in {\em IEEE Aerospace Conference}, pp.~1--18,
+  2013.
+
+\bibitem{chen2021mars2020}
+A.~Chen {\em et~al.}, ``Mars 2020 entry, descent, and landing system
+  performance,'' {\em Journal of Spacecraft and Rockets}, vol.~58, no.~5,
+  pp.~1247--1258, 2021.
+
+\bibitem{ye2021tianwen}
+P.~Ye, Z.~Sun, W.~Rao, and L.~Meng, ``Mission overview and key technologies of
+  the first {Mars} probe of {China},'' {\em Science China Technological
+  Sciences}, vol.~64, no.~2, pp.~249--257, 2021.
+
+\bibitem{acikmese2007lossless}
+B.~A\c{c}{\i}kme{\c{s}}e and S.~R. Ploen, ``Convex programming approach to
+  powered descent guidance for {Mars} landing,'' {\em Journal of Guidance,
+  Control, and Dynamics}, vol.~30, no.~5, pp.~1353--1366, 2007.
+
+\bibitem{benson2003direct}
+D.~A. Benson, ``Direct trajectory optimization using nonlinear programming and
+  collocation,'' {\em Journal of Guidance, Control, and Dynamics}, vol.~26,
+  no.~6, pp.~824--833, 2003.
+
+\bibitem{el2009legendre}
+G.~Elnagar, M.~A. Kazemi, and M.~Razzaghi, ``The pseudospectral {Legendre}
+  method for discretizing optimal control problems,'' {\em IEEE Transactions on
+  Automatic Control}, vol.~40, no.~10, pp.~1793--1796, 2009.
+
+\bibitem{blackmore2012lossless}
+L.~Blackmore, B.~A\c{c}{\i}kme{\c{s}}e, and J.~M. Carson, ``Lossless
+  convexification of powered-descent guidance with nonconvex constraints,''
+  {\em Journal of Guidance, Control, and Dynamics}, vol.~35, no.~2,
+  pp.~312--326, 2012.
+
+\bibitem{liu2017trajectory}
+X.~Liu, P.~Lu, and B.~Pan, ``Survey of convex optimization for aerospace
+  applications,'' {\em Astrodynamics}, vol.~1, no.~1, pp.~23--40, 2017.
+
+\bibitem{acikmese2013}
+B.~A\c{c}{\i}kme{\c{s}}e, J.~M. Carson, and L.~Blackmore, ``Lossless
+  convexification of nonconvex control bound and pointing constraints,'' {\em
+  {IEEE} Transactions on Control Systems Technology}, vol.~21, no.~4,
+  pp.~1204--1213, 2013.
 
 \bibitem{domahidi2013ecos}
 A.~Domahidi, E.~Chu, and S.~Boyd, ``{ECOS}: An {SOCP} solver for embedded

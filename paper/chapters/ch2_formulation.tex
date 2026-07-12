@@ -215,9 +215,9 @@ $n_T$台发动机的总推力向量为各台推力向量之和：
         \draw[->] (0,0) -- (5,0) node[right]{$r_y$};
         \draw[->] (0,0) -- (0,5) node[above]{$r_x$};
         \draw[->] (0,0) -- (-2,-1) node[below]{$r_z$};
-        \draw[dashed] (0,0) -- (4, 4*tan{86});
-        \draw[dashed] (0,0) -- (4, -4*tan{86});
-        \draw[<->] (1,0) arc (0:86:1) node[right]{$\theta$};
+        \draw[dashed] (0,0) -- (4, {4*tan(86)});
+        \draw[dashed] (0,0) -- (4, -{4*tan(86)});
+        \draw[->] (1,0) arc (0:86:1) node[right]{$\theta$};
         \fill (3,2) circle (0.08);
         \node at (3.5,2.3){着陆器};
     \end{tikzpicture}

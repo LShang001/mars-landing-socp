@@ -19,7 +19,7 @@
 ## 二、目标与约束
 
 **目标**: 最小化燃料消耗 min Σσ_k·dt  
-**物理参数** (见 `MarsLanding/MarsLanding.h`):
+**物理参数** (手写 C 见 `MarsLanding/MarsLanding.h`):
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
@@ -40,6 +40,8 @@
 
 **决策变量**: 每步 11 维 (rx, ry, rz, vx, vy, vz, z=ln m, ux, uy, uz, σ), 共 341 维。
 
+**参数来源边界**: `mars_params.py` 是 Python 与自动生成路径的参数来源，不覆盖所有 C/Python 代码。`MarsLanding.c` 的手写 CRS→CCS 构造及其参数保持为独立、人工维护的参考实现；`check_model_consistency.py` 负责校验其与参数化模型的参数一致性。
+
 **约束**:
 - 线性: 质量值不等式 (上下界 via mu1/mu2 线性化), 质量上下界
 - 二阶锥: 下滑角 SOC (||[ry,rz]|| ≤ rx·tanθ), 推力松弛 SOC (||[ux,uy,uz]|| ≤ σ)
@@ -50,7 +52,7 @@
 
 ```
 mars-landing-socp/
-├── CMakeLists.txt              # 3 个目标: ecos_avx, ecos_scalar, ecos_auto
+├── CMakeLists.txt              # 4 个目标: ecos_avx, ecos_scalar, ecos_auto, ecos_clarabel
 ├── MarsLanding/
 │   ├── MarsLanding.h           # 问题定义 (维度宏)
 │   ├── MarsLanding.c           # 主程序 — 手写 CRS→CCS 矩阵构造 + ECOS
@@ -82,13 +84,14 @@ cd mars-landing-socp
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release && make -j$(nproc)
 
-# 三版对比
-./build/bin/ecos_avx        # C 手写版 (AVX优化)
-./build/bin/ecos_scalar     # C 手写版 (标量)
-./build/bin/ecos_auto       # C 自动版 (CasADi 生成矩阵)
+# 四版对比（当前目录为 build/）
+./bin/ecos_avx        # C 手写版 (AVX优化)
+./bin/ecos_scalar     # C 手写版 (标量)
+./bin/ecos_auto       # C 自动版 (CasADi 生成矩阵)
+./bin/ecos_clarabel   # Clarabel C 版
 
 # Python 交叉验证
-cd MarsLanding
+cd ../MarsLanding
 python3 mars_solve.py        # CVXPY+ECOS 和 CasADi+IPOPT
 python3 mars_model.py        # 模型验证 (矩阵非零元对比)
 python3 mars_codegen.py      # 重新生成 MarsLandingAutoData.h
@@ -105,7 +108,7 @@ cd ../build && make -j4       # 重新编译
 ## 五、物理约定与坐标系
 
 **坐标系统**: x 轴向上 (远离火星表面), yz 水平。  
-**重力**: g = +3.7114 m/s², 方向为 +x (向上)。但在动力学中重力提供向下的加速度:
+**重力**: `g = 3.7114 m/s²` 是正的重力大小；x 轴向上，重力加速度方向为 -x。动力学中的重力项为:
   - 位置: `rx(k+1) = rx(k) + vx(k)·dt + 0.5·ux(k)·dt² - 0.5·g·dt²`
   - 速度: `vx(k+1) = vx(k) + ux(k)·dt - g·dt`
 
@@ -127,7 +130,7 @@ cd ../build && make -j4       # 重新编译
 6. **ECOS 2.0.10 是官方满血版**: 我们的 ecos/ 目录来自官方 v2.0.10 (embotech/ecos) + 额外文件 expcone.c/wright_omega.c。ECOS 实例的 PROFILING=2 和 CTRLC=0 通过 CMake 定义。
 7. **CasADi DM 赋值**: `float(DM[i])` 或 `.nz` 访问, 不能 `list()` 迭代。
 8. **Python ecos.solve 签名**: `ecos.solve(c, G, h, dims, A=A, b=b)`, 不是 `ecos.solve(c, G, dims, A, b, h)`。
-9. **CasADi b/h 提取公式**: `b = -eq(0)`, `h = -ineq(0)`，不是 `-A@x+eq`。旧版 mars_model.py 曾用后一种公式导致 b/h 符号错误。验证方法：b[0] 应等于 r₀[0]=1500（正数），b[13]=½g·dt²=13.528（正数）。
+9. **CasADi b/h 提取公式与索引校验**: `b = -eq(0)`, `h = -ineq(0)`，不是 `-A@x+eq`。`mars_model.py` 有意采用手写 C 的 `A*x=b` 约定，验证值为 `b[0]=r₀[0]=1500`、`b[13]=+½g·dt²=13.528`。`mars_codegen.py`/`MarsLandingAuto` 有意采用相反的 A,b 约定，对应的 `b[13]=-½g·dt²=-13.528`；两者物理等价。旧版 mars_model.py 曾用错误提取公式导致 b/h 符号错误。
 10. **IPOPT 不能直接用 SOC 锥**: IPOPT 不支持 `||x|| ≤ t` 形式，必须在 NLP 中写为光滑等价形式 `t² - x₁² - ... ≥ 0` 且 `t ≥ 0`。把 SOC 拆成标量 `rx≥0, ry≥0, rz≥0` 是错误做法——丢失了范数约束，结果偏差可达 23%。
 11. **acados 惩罚法优于硬约束**: 硬约束 `con_h_expr` 在 u≈0 处 Hessian 病态导致 QP 崩溃。将 SOC 约束转为 softplus 惩罚项加入 LS 代价, 配合多轮 continuation (w=10→1e5), 可精确匹配 ECOS 400.7 kg。详见 mars_acados.py。
 12. **单精度 (float) 不可用于此问题**: Clarabel f32 虽然快 50x (0.12 ms vs 6 ms), 但燃料误差 375%。根因: 问题动态范围大 (位置 1500, exp(-z)~0.0005), float 条件数不足。嵌入式部署必须用 double。详见 benchmarks/clarabel_float_bench.c。
@@ -141,8 +144,8 @@ Clarabel f32 基准实测燃料 1880+ kg，误差 375%。根因：动态范围 1
 ### 陷阱 15：C 手写版与 CasADi 代码生成版的 A 矩阵符号约定相反
 C 版写为 A*x=b（如 rx_k + dt*vx_k + ... = +½g·dt²），CasADi 版提取 A=jacobian(eq,x) b=-eq(0)，得到符号相反的矩阵（如 -rx_k - dt*vx_k - ... = -½g·dt²）。两者物理等价但矩阵数值符号相反。进行逐元素对比时注意此约定差异。
 
-### 陷阱 16：mars_model.py 与 mars_codegen.py 的线性约束行序不同
-mars_model.py 用与 C 手写版一致的分组行序（先全部质量值不等式 62 行，再全部质量上下界 62 行）。mars_codegen.py 用按 k 交错的行序（每个 k 步内交替排列）。两种行序数学等价但 G 矩阵行号完全不同。混用两份文件输出会引入隐蔽 Bug。建议统一为分组行序。
+### 陷阱 16：G 矩阵约束行序必须保持分组
+已实现的行序为：前 124 行线性约束（62 行推力/质量值不等式 + 62 行质量上下界），随后 93 行下滑角 SOC，最后 124 行推力 SOC。`mars_model.py`、`mars_codegen.py` 与自动生成数据必须保持该分组顺序；混用不同顺序的矩阵数据会引入隐蔽 Bug。
 
 ### 陷阱 17：AVX/FMA 编译选项对稀疏 LDL 分解无效
 ECOS_USE_AVX=1 在源码中无任何 _mm256_* intrinsic。实测标量版比 AVX 版快 2.4%。根因：稀疏 LDL 分解是内存带宽瓶颈（CCS 格式 irregular gather/scatter），SIMD 无法加速。不应再尝试对稀疏求解器加 SIMD 编译选项——如需加速应改写算法而非加编译器 flag。

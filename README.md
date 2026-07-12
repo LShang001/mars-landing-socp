@@ -8,7 +8,7 @@
 
 ## 一、项目概述
 
-本项目使用 ECOS（Embedded Conic Solver）求解器，通过 SOCP（二阶锥规划）方法求解火星着陆动力下降段的最优轨迹。项目提供两个编译目标：AVX 加速版和纯标量版，可根据 CPU 频率/功耗需求选择。
+本项目使用 ECOS（Embedded Conic Solver）求解器，通过 SOCP（二阶锥规划）方法求解火星着陆动力下降段的最优轨迹。项目提供四个编译目标：AVX 加速版、纯标量版、CasADi 自动生成版和 Clarabel C 版，可根据验证或部署需求选择。
 
 **核心问题：** 给定初始状态（位置、速度、质量）和终端状态（着陆点），在满足推力约束、下滑角约束和燃料约束的前提下，找到最小燃料消耗的推力控制序列。
 
@@ -20,11 +20,12 @@
 ecos-cn-raspberry/
 ├── CMakeLists.txt              # CMake 构建（4 目标: avx,scalar,auto,clarabel）
 ├── CLAUDE.md                   # Claude Code 入口（@AGENTS.md 桥接）
-├── AGENTS.md                   # 项目手册（13 节, 12 条陷阱, AI 自动加载）
+├── AGENTS.md                   # 项目手册（13 节, 19 条编号陷阱, AI 自动加载）
 ├── ci/
 │   └── validate.sh             # 一键验证（7 求解器, bash ci/validate.sh）
 ├── MarsLanding/
-│   ├── mars_params.py          # ★ 物理参数唯一来源
+│   ├── mars_params.py          # Python 与自动生成路径的物理参数来源
+│   ├── check_model_consistency.py # 校验手写 C 与参数化模型的参数一致性
 │   ├── mars_solve.py           # 4 求解器交叉验证（ECOS+Clarabel+IPOPT+acados）
 │   ├── mars_model.py           # CasADi 建模 + 矩阵数值验证
 │   ├── mars_codegen.py         # CasADi → C 头文件代码生成
@@ -67,7 +68,9 @@ ecos-cn-raspberry/
 └── build/                      # 构建输出
     ├── bin/
     │   ├── ecos_avx            # AVX2+FMA 加速版可执行文件
-    │   └── ecos_scalar         # 纯标量版可执行文件
+    │   ├── ecos_scalar         # 纯标量版可执行文件
+    │   ├── ecos_auto           # CasADi 自动生成版可执行文件
+    │   └── ecos_clarabel       # Clarabel C 版可执行文件
     └── CMakeFiles/             # 编译中间文件
 ```
 
@@ -83,7 +86,7 @@ ecos-cn-raspberry/
 | NX | 7 | 状态维度：rx, ry, rz, vx, vy, vz, z(=ln m) |
 | NU | 4 | 控制维度：ux, uy, uz（推力），s（松弛变量） |
 | n | (NX+NU)×(N+1) = 341 | 优化变量总数 |
-| p | 7 + 7×N = 217 | 等式约束数（边界 + 动力学） |
+| p | 7 + 6 + 7×N = 223 | 等式约束数（7 个初始边界 + 6 个终端边界 + 动力学） |
 | l | (N+1)×4 = 124 | 线性不等式约束数 |
 | ncones | (N+1)×2 = 62 | 二阶锥数量 |
 
@@ -92,8 +95,8 @@ ecos-cn-raspberry/
 采用**双积分器 + 质量消耗**模型：
 
 ```
-r_{k+1} = r_k + v_k·dt + 0.5·u_k·dt² + 0.5·g·dt²
-v_{k+1} = v_k + u_k·dt + g·dt
+r_{k+1} = r_k + v_k·dt + 0.5·u_k·dt² - 0.5·g·dt²
+v_{k+1} = v_k + u_k·dt - g·dt
 z_{k+1} = z_k - α·s_k·dt
 ```
 
@@ -101,7 +104,7 @@ z_{k+1} = z_k - α·s_k·dt
 - `z = ln(m)` 为质量对数（凸化处理）
 - `α = 1/(I_sp·g_e·cos φ)` 为燃料消耗系数
 - `s_k` 为松弛变量，`||u_k|| ≤ s_k`（推力锥约束）
-- `g = [3.7114, 0, 0]` 为火星重力加速度（仅 x 方向）
+- x 轴向上，`g = [3.7114, 0, 0]` 的大小为火星重力加速度；动力学中重力沿 -x 方向作用
 
 ### 3.3 约束条件
 
@@ -116,7 +119,7 @@ z_{k+1} = z_k - α·s_k·dt
 ### 3.4 目标函数
 
 ```
-min  Σ s_k     （最小化推力松弛 ≈ 最小化燃料）
+min  Σ σ_k·dt  （最小化推力松弛 ≈ 最小化燃料）
 ```
 
 ### 3.5 物理参数
@@ -130,6 +133,7 @@ min  Σ s_k     （最小化推力松弛 ≈ 最小化燃料）
 | I_sp | 225 s | 发动机比冲 |
 | T_min | 0.3·T_max = 930 N | 单推力下限（6台 × 930 = 5580 N） |
 | T_max | 3.1 kN | 单台发动机最大推力 |
+| T_2 | 0.8·T_max = 2480 N | 实际采用的单台推力上界（预留 20% 姿控余量） |
 | n_T | 6 | 发动机数量 |
 | φ | 27° | 发动机安装倾角 |
 | θ_alt | 86° | 下滑角约束（86° = 几乎垂直） |
@@ -147,18 +151,20 @@ min  Σ s_k     （最小化推力松弛 ≈ 最小化燃料）
 
 ### 4.1 稀疏矩阵手写构造
 
-程序直接在代码中以 CSC（压缩列存储）格式手工填入矩阵 A 和 G 的每个非零元素。这种方法虽然代码冗长，但避免了 MATLAB/自动代码生成的依赖，适合嵌入式移植。
+程序先按约束行在 CRS（行压缩）格式中手工组装矩阵 A 和 G 的非零元素，再转换为 ECOS 所需的 CCS（列压缩）格式。这种方法虽然代码冗长，但避免了 MATLAB/自动代码生成的依赖，适合嵌入式移植。
+
+`MarsLanding.c` 的手写 CRS→CCS 构造是独立、人工维护的参考实现，不由自动生成版本替换或导出。`mars_params.py` 仅是 Python 与自动生成路径的参数来源；手写 C 保持自己的参数值，并由 `check_model_consistency.py` 校验两条路径的参数一致性。
 
 **A 矩阵（等式约束）：**
 - 行 0-6：初始边界条件（7 行）
-- 行 7-13：终端边界条件（7 行）
-- 行 14-223：动力学约束（210 行 = 7 × 30）
+- 行 7-12：终端边界条件（6 行）
+- 行 13-222：动力学约束（210 行 = 7 × 30）
 
 **G 矩阵（不等式约束）：**
 - 前 62 行：推力质量不等式
 - 后 62 行：质量上下界
 - 再 93 行：下滑角 SOC 约束
-- 最后 93 行：推力松弛 SOC 约束
+- 最后 124 行：推力松弛 SOC 约束（31 个 q=4 锥）
 
 ### 4.2 CRM → CCM 格式转换
 
@@ -194,14 +200,14 @@ make -j$(nproc)
 
 ```bash
 # C 嵌入式 (4 目标)
-./build/bin/ecos_avx         # AVX2+FMA 加速版
-./build/bin/ecos_scalar      # 纯标量版
-./build/bin/ecos_auto        # CasADi 自动生成版
-./build/bin/ecos_clarabel    # Clarabel C (Rust, 备选)
+./bin/ecos_avx         # AVX2+FMA 加速版
+./bin/ecos_scalar      # 纯标量版
+./bin/ecos_auto        # CasADi 自动生成版
+./bin/ecos_clarabel    # Clarabel C (Rust, 备选)
 
 # 一键验证
-bash ci/validate.sh          # 7 求解器（不含 acados）
-bash ci/validate.sh --full   # 含 acados + Monte Carlo
+bash ../ci/validate.sh          # 7 求解器（不含 acados）
+bash ../ci/validate.sh --full   # 含 acados + Monte Carlo
 ```
 
 ### 预期输出
@@ -259,7 +265,7 @@ AMD 排序库和 LDL 分解库完全一致。
 
 项目包含系统化的开发经验和调试文档，新贡献者和 AI 协作者建议按以下顺序阅读：
 
-1. **[AGENTS.md](AGENTS.md)** — 项目手册（AI 自动加载）。物理约定、已知陷阱（10 条）、验证基准、交叉验证矩阵
+1. **[AGENTS.md](AGENTS.md)** — 项目手册（AI 自动加载）。物理约定、已知陷阱（19 条）、验证基准、交叉验证矩阵
 2. **[docs/ecos-soc-convention.md](docs/ecos-soc-convention.md)** — ECOS SOC 锥符号约定（`h-Gx ∈ K` 推导、CasADi 提取公式、验证清单）
 3. **[docs/ipopt-cross-validation.md](docs/ipopt-cross-validation.md)** — IPOPT NLP 光滑等价形式交叉验证 SOCP 的方法论
 4. **[docs/debugging-methodology.md](docs/debugging-methodology.md)** — L1-L3 分级排查流程、关键行快速验证、典型案例

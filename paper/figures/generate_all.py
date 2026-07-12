@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Generate 10 publication-quality figures for Mars landing SOCP paper.
-All sizing fits A4 single-column (text width ~16cm / 6.3in).
+Generate publication-quality figures for the Mars landing SOCP paper.
+The PDF output is authoritative; PNG files are only convenient previews.
 """
 import json, os, numpy as np
 import matplotlib
@@ -35,37 +35,50 @@ u_norm = np.sqrt(ux**2 + uy**2 + uz**2)
 rcParams.update({
     'font.family': 'serif',
     'font.serif': ['Liberation Serif', 'DejaVu Serif', 'Times New Roman'],
-    'font.size': 7,
-    'axes.labelsize': 7,
-    'axes.titlesize': 8,
-    'xtick.labelsize': 6,
-    'ytick.labelsize': 6,
-    'legend.fontsize': 6,
-    'legend.framealpha': 0.7,
-    'lines.linewidth': 1.0,
-    'axes.linewidth': 0.5,
-    'grid.alpha': 0.2,
-    'grid.linestyle': '--',
-    'grid.linewidth': 0.3,
+    'font.size': 9,
+    'axes.labelsize': 9,
+    'axes.titlesize': 10,
+    'xtick.labelsize': 8,
+    'ytick.labelsize': 8,
+    'legend.fontsize': 8,
+    'legend.framealpha': 0.95,
+    'legend.edgecolor': '#C9CED6',
+    'lines.linewidth': 1.6,
+    'axes.linewidth': 0.8,
+    'axes.edgecolor': '#3D4654',
+    'axes.labelcolor': '#202833',
+    'xtick.color': '#3D4654',
+    'ytick.color': '#3D4654',
+    'grid.alpha': 0.55,
+    'grid.linestyle': '-',
+    'grid.linewidth': 0.45,
     'pdf.fonttype': 42,
     'ps.fonttype': 42,
     'text.usetex': False,
-    'figure.dpi': 150,
-    'savefig.dpi': 300,
+    'figure.dpi': 180,
+    'savefig.dpi': 360,
     'savefig.bbox': 'tight',
     'savefig.pad_inches': 0.02,
 })
-COLORS = plt.get_cmap('tab10').colors
+COLORS = ['#1D4E89', '#2C7DA0', '#168277', '#D97706', '#A23E48', '#6D597A']
+TEXT = '#202833'
+MUTED = '#6B7280'
 
-# Compact sizes — LaTeX \includegraphics will scale these down further
-W = 3.2     # figure width (inches) — LaTeX scales to ~0.6\textwidth
-H = 1.8     # base height for single-panel figures
-H2 = 2.6    # height for 2-subplot figures
-H3 = 3.4    # height for 3-subplot figures
+# Sized for a readable 0.84\textwidth placement in a single-column A4 paper.
+W = 6.1
+H = 2.85
+H2 = 4.15
+H3 = 5.05
 
 def grid(ax):
-    ax.grid(True, alpha=0.25, linestyle='--', linewidth=0.2)
-    ax.tick_params(direction='in', top=True, right=True, width=0.5, labelsize=6)
+    ax.grid(axis='y', color='#D8DEE8')
+    ax.set_axisbelow(True)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.tick_params(direction='out', width=0.7, length=3, labelsize=8)
+
+def finish(fig):
+    fig.tight_layout(pad=0.45)
 
 def save(fig, name):
     pdf = os.path.join(SCRIPT_DIR, f'{name}.pdf')
@@ -79,36 +92,31 @@ def save(fig, name):
 # Fig 1 — 3D trajectory
 # ============================================================
 def fig1():
-    fig = plt.figure(figsize=(W * 1.1, W * 1.0))
+    fig = plt.figure(figsize=(5.25, 4.45))
     ax = fig.add_subplot(111, projection='3d')
-    ax.view_init(elev=22, azim=-48)
+    ax.view_init(elev=19, azim=-58)
+    ax.plot(rx, ry, rz, color=COLORS[0], linewidth=2.2, solid_capstyle='round')
+    ax.scatter(rx[0], ry[0], rz[0], color='#C2414B', s=48, marker='o',
+               edgecolors='white', linewidth=0.8, zorder=10, label='Initial state')
+    ax.scatter(rx[-1], ry[-1], rz[-1], color='#168277', s=55, marker='^',
+               edgecolors='white', linewidth=0.8, zorder=10, label='Landing')
+    yy_, zz_ = np.meshgrid(np.linspace(-220, 220, 4), np.linspace(0, 350, 4))
+    ax.plot_surface(np.zeros_like(yy_), yy_, zz_, alpha=0.06, color=MUTED)
 
-    points = np.array([rx, ry, rz]).T
-    for i in range(len(points) - 1):
-        ax.plot(rx[i:i+2], ry[i:i+2], rz[i:i+2],
-                color=plt.cm.viridis(i/len(points)), linewidth=0.7, alpha=0.8)
-
-    ax.scatter(*[rx[0]],  *[ry[0]],  *[rz[0]],  color='#d62728', s=35,
-               marker='o', edgecolors='k', linewidth=0.2, zorder=10, label='Start (t=0)')
-    ax.scatter(*[rx[-1]], *[ry[-1]], *[rz[-1]], color='#2ca02c', s=50,
-               marker='^', edgecolors='k', linewidth=0.2, zorder=10, label='Landing (t=81s)')
-
-    xx, yy_ = np.meshgrid(np.linspace(-3, 3, 3), np.linspace(-3, 3, 3))
-    ax.plot_surface(xx * 300, yy_ * 300, np.zeros_like(xx),
-                    alpha=0.06, color='gray', zorder=0)
-
-    ax.set_xlabel('$r_x$ (m)', labelpad=3)
-    ax.set_ylabel('$r_y$ (m)', labelpad=3)
-    ax.set_zlabel('$r_z$ (m)', labelpad=3)
-    ax.legend(loc='upper left', fontsize=6, framealpha=0.6)
+    ax.set_xlabel('$r_x$ (m)', labelpad=4)
+    ax.set_ylabel('$r_y$ (m)', labelpad=4)
+    ax.set_zlabel('$r_z$ (m)', labelpad=5)
+    ax.legend(loc='upper left', fontsize=7, borderpad=0.5)
 
     ax.set_xlim(0, 1550)
     ax.set_ylim(-150, 150)
     ax.set_zlim(0, 2100)
-    ax.set_box_aspect([1, 0.3, 1.3])
-    ax.tick_params(labelsize=5, pad=1)
-
-    fig.tight_layout(pad=0.05)
+    ax.set_box_aspect([1.0, 0.34, 1.12])
+    ax.tick_params(labelsize=7, pad=1)
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+    finish(fig)
     save(fig, 'fig01_3d_trajectory')
 
 
@@ -122,13 +130,14 @@ def fig2():
             (ry, '$r_y$ (m)', COLORS[1]),
             (rz, '$r_z$ (m)', COLORS[2])]
     for i, (ax, (d, lab, c)) in enumerate(zip(axes, data)):
-        ax.plot(time, d, color=c, linewidth=0.9)
-        ax.set_ylabel(lab, fontsize=7)
-        ax.axhline(y=0, color='gray', linewidth=0.2, linestyle=':')
+        ax.plot(time, d, color=c, linewidth=1.7)
+        ax.set_ylabel(lab)
+        ax.axhline(y=0, color=MUTED, linewidth=0.65, linestyle=':')
         grid(ax)
         if i < 2:
             ax.tick_params(labelbottom=False)
-    axes[-1].set_xlabel('Time (s)', fontsize=7)
+    axes[-1].set_xlabel('Time (s)')
+    finish(fig)
     save(fig, 'fig02_position_time')
 
 
@@ -142,13 +151,14 @@ def fig3():
             (vy, '$v_y$ (m/s)', COLORS[1]),
             (vz, '$v_z$ (m/s)', COLORS[2])]
     for i, (ax, (d, label, c)) in enumerate(zip(axes, data)):
-        ax.plot(time, d, color=c, linewidth=0.9)
-        ax.set_ylabel(label, fontsize=7)
-        ax.axhline(y=0, color='gray', linewidth=0.2, linestyle=':')
+        ax.plot(time, d, color=c, linewidth=1.7)
+        ax.set_ylabel(label)
+        ax.axhline(y=0, color=MUTED, linewidth=0.65, linestyle=':')
         grid(ax)
         if i < 2:
             ax.tick_params(labelbottom=False)
     axes[-1].set_xlabel('Time (s)')
+    finish(fig)
     save(fig, 'fig03_velocity_time')
 
 
@@ -157,16 +167,17 @@ def fig3():
 # ============================================================
 def fig4():
     fig, ax = plt.subplots(figsize=(W, H))
-    ax.plot(time, mass, color=COLORS[7], linewidth=0.9)
-    ax.axhline(y=mass[-1], color='gray', linestyle=':', linewidth=0.8,
+    ax.plot(time, mass, color=COLORS[5], linewidth=1.8)
+    ax.fill_between(time, mass, mass[-1], color=COLORS[5], alpha=0.08)
+    ax.axhline(y=mass[-1], color=MUTED, linestyle=':', linewidth=1.0,
                label=f'Terminal: {mass[-1]:.1f} kg')
-    ax.axhline(y=mass[0], color='gray', linestyle=':', linewidth=0.8,
+    ax.axhline(y=mass[0], color=MUTED, linestyle=':', linewidth=1.0,
                label=f'Initial: {mass[0]:.1f} kg')
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Mass (kg)')
-    ax.legend(fontsize=6, loc='lower left')
+    ax.legend(loc='lower left')
     grid(ax)
-    fig.tight_layout(pad=0.1)
+    finish(fig)
     save(fig, 'fig04_mass_evolution')
 
 
@@ -175,14 +186,15 @@ def fig4():
 # ============================================================
 def fig5():
     fig, ax = plt.subplots(figsize=(W, H))
-    ax.plot(time, u_norm, color=COLORS[0], linewidth=0.9, label=r'$\|\mathbf{u}\|$')
-    ax.plot(time, sigma, color=COLORS[3], linewidth=0.9, linestyle='--', dashes=(5, 3),
+    control_time = time[:-1]
+    ax.plot(control_time, u_norm[:-1], color=COLORS[0], linewidth=1.8, label=r'$\|\mathbf{u}\|$')
+    ax.plot(control_time, sigma[:-1], color=COLORS[3], linewidth=1.5, linestyle='--', dashes=(5, 3),
             label=r'$\sigma$')
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Thrust acceleration (N/kg)')
-    ax.legend(fontsize=7)
+    ax.legend()
     grid(ax)
-    fig.tight_layout(pad=0.1)
+    finish(fig)
     save(fig, 'fig05_thrust_comparison')
 
 
@@ -199,24 +211,24 @@ def fig6():
     fig.subplots_adjust(hspace=0.12)
 
     ax = axes[0]
-    ax.plot(time, lhs, color=COLORS[2], linewidth=0.9,
+    ax.plot(time, lhs, color=COLORS[2], linewidth=1.7,
             label=r'$\|[r_y,r_z]\|$')
-    ax.plot(time, rhs, color=COLORS[3], linewidth=0.9, linestyle='--', dashes=(5, 3),
+    ax.plot(time, rhs, color=COLORS[3], linewidth=1.5, linestyle='--', dashes=(5, 3),
             label=r'$r_x\tan\theta$')
-    ax.set_ylabel('Distance (m)', fontsize=7)
-    ax.legend(fontsize=6, loc='upper left')
+    ax.set_ylabel('Distance (m)')
+    ax.legend(loc='upper left')
     grid(ax)
     ax.tick_params(labelbottom=False)
 
     ax = axes[1]
-    ax.fill_between(time, 0, margin, color=COLORS[4], alpha=0.15)
-    ax.plot(time, margin, color=COLORS[4], linewidth=0.8)
-    ax.axhline(y=0, color='k', linewidth=0.2)
+    ax.fill_between(time, 0, margin, color=COLORS[4], alpha=0.13)
+    ax.plot(time, margin, color=COLORS[4], linewidth=1.45)
+    ax.axhline(y=0, color=MUTED, linewidth=0.65)
     ax.set_xlabel('Time (s)')
-    ax.set_ylabel(r'$r_x\tan\theta - \|[r_y,r_z]\|$ (m)', fontsize=7)
+    ax.set_ylabel('Margin (m)')
     grid(ax)
 
-    fig.tight_layout(pad=0.1)
+    finish(fig)
     save(fig, 'fig06_glide_slope')
 
 
@@ -224,30 +236,35 @@ def fig6():
 # Fig 7 — Thrust cone constraint
 # ============================================================
 def fig7():
-    margin = sigma - u_norm
+    # The N control intervals are k=0,...,N-1.  The terminal node stores
+    # decision variables for uniform layout but does not apply a control.
+    control_time = time[:-1]
+    control_norm = u_norm[:-1]
+    control_sigma = sigma[:-1]
+    residual = control_sigma - control_norm
 
     fig, axes = plt.subplots(2, 1, figsize=(W, H2), sharex=True)
     fig.subplots_adjust(hspace=0.12)
 
     ax = axes[0]
-    ax.plot(time, u_norm, color=COLORS[0], linewidth=0.9, label=r'$\|\mathbf{u}\|$')
-    ax.plot(time, sigma, color=COLORS[3], linewidth=0.9, linestyle='--', dashes=(5, 3),
+    ax.plot(control_time, control_norm, color=COLORS[0], linewidth=1.7, label=r'$\|\mathbf{u}\|$')
+    ax.plot(control_time, control_sigma, color=COLORS[3], linewidth=1.5, linestyle='--', dashes=(5, 3),
             label=r'$\sigma$')
-    ax.set_ylabel('Thrust (N/kg)', fontsize=7)
-    ax.legend(fontsize=6)
+    ax.set_ylabel('Thrust (N/kg)')
+    ax.legend()
     grid(ax)
     ax.tick_params(labelbottom=False)
 
     ax = axes[1]
-    ax.fill_between(time, 0, margin, color=COLORS[5], alpha=0.15)
-    ax.plot(time, margin, color=COLORS[5], linewidth=0.8)
-    ax.axhline(y=0, color='k', linewidth=0.2)
+    ax.fill_between(control_time, 0, residual, color=COLORS[5], alpha=0.13)
+    ax.plot(control_time, residual, color=COLORS[5], linewidth=1.35)
+    ax.axhline(y=0, color=MUTED, linewidth=0.65)
     ax.set_xlabel('Time (s)')
-    ax.set_ylabel(r'$\sigma - \|\mathbf{u}\|$ (N/kg)', fontsize=7)
-    ax.set_yscale('log')
+    ax.set_ylabel('Numerical residual (N/kg)')
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
     grid(ax)
 
-    fig.tight_layout(pad=0.1)
+    finish(fig)
     save(fig, 'fig07_thrust_cone')
 
 
@@ -258,19 +275,22 @@ def fig8():
     names = [s['solver'].replace('+','+\n') for s in solvers]
     fuels = [s['fuel_kg'] for s in solvers]
 
-    fig, ax = plt.subplots(figsize=(W, H * 1.05))
-    bars = ax.bar(range(len(names)), fuels, color=[COLORS[0], COLORS[1], COLORS[2]],
-                  width=0.55, edgecolor='white', linewidth=0.2, zorder=3)
+    fig, ax = plt.subplots(figsize=(W, H))
+    x = np.arange(len(names))
+    ax.hlines(400.7, -0.45, len(names) - 0.55, color=MUTED, linestyle='--', linewidth=1.0,
+              label='Reference 400.7 kg')
+    ax.scatter(x, fuels, s=58, color=[COLORS[0], COLORS[1], COLORS[2]],
+               edgecolor='white', linewidth=1.0, zorder=3)
     ax.set_ylabel('Fuel consumption (kg)')
-    ax.set_ylim(395, 410)
-    ax.axhline(y=400.7, color='gray', linestyle='--', linewidth=0.6, alpha=0.5)
-    for bar, val in zip(bars, fuels):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3,
-                f'{val:.1f}', ha='center', va='bottom', fontsize=7)
-    ax.set_xticks(range(len(names)))
-    ax.set_xticklabels(names, fontsize=7)
+    ax.set_ylim(400.25, 401.15)
+    for xi, val in zip(x, fuels):
+        ax.text(xi, val + 0.08, f'{val:.1f}', ha='center', va='bottom', fontsize=9,
+                color=TEXT, weight='semibold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(names)
     grid(ax)
-    fig.tight_layout(pad=0.1)
+    ax.legend(loc='upper right')
+    finish(fig)
     save(fig, 'fig08_fuel_comparison')
 
 
@@ -281,19 +301,19 @@ def fig9():
     names = [s['solver'].replace('+','+\n') for s in solvers]
     times_ms = [s['time_ms'] for s in solvers]
 
-    fig, ax = plt.subplots(figsize=(W, H * 1.05))
+    fig, ax = plt.subplots(figsize=(W, H))
     bars = ax.bar(range(len(names)), times_ms, color=[COLORS[0], COLORS[1], COLORS[2]],
-                  width=0.55, edgecolor='white', linewidth=0.2, zorder=3)
+                  width=0.55, edgecolor='white', linewidth=0.6, zorder=3)
     ax.set_ylabel('Solve time (ms)')
     ax.set_yscale('log')
     for bar, val in zip(bars, times_ms):
         lbl = f'{val:.0f}' if val < 1000 else f'{val/1000:.2f}s'
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.15,
-                lbl, ha='center', va='bottom', fontsize=6)
+                lbl, ha='center', va='bottom', fontsize=8, weight='semibold')
     ax.set_xticks(range(len(names)))
-    ax.set_xticklabels(names, fontsize=7)
+    ax.set_xticklabels(names)
     grid(ax)
-    fig.tight_layout(pad=0.1)
+    finish(fig)
     save(fig, 'fig09_time_comparison')
 
 
@@ -307,13 +327,14 @@ def fig10():
             (uy, '$u_y$ (N/kg)', COLORS[1]),
             (uz, '$u_z$ (N/kg)', COLORS[2])]
     for i, (ax, (d, label, c)) in enumerate(zip(axes, data)):
-        ax.plot(time, d, color=c, linewidth=0.9)
-        ax.set_ylabel(label, fontsize=7)
-        ax.axhline(y=0, color='gray', linewidth=0.2, linestyle=':')
+        ax.plot(time, d, color=c, linewidth=1.7)
+        ax.set_ylabel(label)
+        ax.axhline(y=0, color=MUTED, linewidth=0.65, linestyle=':')
         grid(ax)
         if i < 2:
             ax.tick_params(labelbottom=False)
     axes[-1].set_xlabel('Time (s)')
+    finish(fig)
     save(fig, 'fig10_control_time')
 
 

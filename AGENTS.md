@@ -130,6 +130,7 @@ cd ../build && make -j4       # 重新编译
 9. **CasADi b/h 提取公式**: `b = -eq(0)`, `h = -ineq(0)`，不是 `-A@x+eq`。旧版 mars_model.py 曾用后一种公式导致 b/h 符号错误。验证方法：b[0] 应等于 r₀[0]=1500（正数），b[13]=½g·dt²=13.528（正数）。
 10. **IPOPT 不能直接用 SOC 锥**: IPOPT 不支持 `||x|| ≤ t` 形式，必须在 NLP 中写为光滑等价形式 `t² - x₁² - ... ≥ 0` 且 `t ≥ 0`。把 SOC 拆成标量 `rx≥0, ry≥0, rz≥0` 是错误做法——丢失了范数约束，结果偏差可达 23%。
 11. **acados 惩罚法优于硬约束**: 硬约束 `con_h_expr` 在 u≈0 处 Hessian 病态导致 QP 崩溃。将 SOC 约束转为 softplus 惩罚项加入 LS 代价, 配合多轮 continuation (w=10→1e5), 可精确匹配 ECOS 400.7 kg。详见 mars_acados.py。
+12. **单精度 (float) 不可用于此问题**: Clarabel f32 虽然快 50x (0.12 ms vs 6 ms), 但燃料误差 375%。根因: 问题动态范围大 (位置 1500, exp(-z)~0.0005), float 条件数不足。嵌入式部署必须用 double。详见 benchmarks/clarabel_float_bench.c。
 
 ---
 
@@ -165,7 +166,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/acados/lib
 
 ---
 
-## 七、经验文档索引
+## 八、经验文档索引
 
 项目 `docs/` 目录包含可复用的深度参考文档，修改代码前建议查阅：
 
@@ -177,7 +178,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/acados/lib
 
 ---
 
-## 八、验证基准
+## 九、验证基准
 
 **黄金标准**: 所有求解器必须输出 `400.7 kg` 燃料消耗。
 
@@ -200,7 +201,7 @@ cd build && make -j4 && \
 
 ---
 
-## 九、多求解器交叉验证
+## 十、多求解器交叉验证
 
 | 版本 | 求解器 | 建模方式 | 燃料 | 偏差 |
 |------|--------|----------|------|------|
@@ -217,7 +218,7 @@ cd build && make -j4 && \
 
 ---
 
-## 十、代码风格
+## 十一、代码风格
 
 - 中文注释 (物理/数学以中文为主, 符号保留英文)
 - 变量命名: 状态用 `r_x, v_x, z`, 控制用 `u_x, σ` (sigma)
@@ -227,7 +228,7 @@ cd build && make -j4 && \
 
 ---
 
-## 十一、Git 协同
+## 十二、Git 协同
 
 - 仓库: `git@github.com:LShang001/mars-landing-socp.git`
 - 分支: 直接推 master (无 PR 流程, 无分支保护)
@@ -236,7 +237,7 @@ cd build && make -j4 && \
 
 ---
 
-## 十二、相关资源
+## 十三、相关资源
 
 - ECOS 官方: https://github.com/embotech/ecos
 - CasADi: https://web.casadi.org/

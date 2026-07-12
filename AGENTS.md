@@ -57,9 +57,10 @@ mars-landing-socp/
 │   ├── CRM2CCM.c               # 稀疏矩阵 CRS→CCS 格式转换
 │   ├── MarsLandingAuto.c       # 自动建模版 (CasADi 生成 CCS)
 │   ├── MarsLandingAutoData.h   # CasADi 生成的 CCS 矩阵数据 (机器生成)
-│   ├── mars_solve.py           # Python 多求解器交叉验证 (CVXPY + CasADi/IPOPT)
+│   ├── mars_solve.py           # Python 多求解器交叉验证 (ECOS + IPOPT + acados)
 │   ├── mars_model.py           # CasADi 建模 + 矩阵验证
-│   └── mars_codegen.py         # CasADi → C 头文件代码生成
+│   ├── mars_codegen.py         # CasADi → C 头文件代码生成
+│   └── mars_acados.py          # acados SQP 求解器 (实验性)
 ├── docs/                       # 经验文档 (可复用参考)
 │   ├── ecos-soc-convention.md  # ECOS SOC 锥符号约定
 │   ├── ipopt-cross-validation.md  # IPOPT 交叉验证方法
@@ -128,6 +129,39 @@ cd ../build && make -j4       # 重新编译
 8. **Python ecos.solve 签名**: `ecos.solve(c, G, h, dims, A=A, b=b)`, 不是 `ecos.solve(c, G, dims, A, b, h)`。
 9. **CasADi b/h 提取公式**: `b = -eq(0)`, `h = -ineq(0)`，不是 `-A@x+eq`。旧版 mars_model.py 曾用后一种公式导致 b/h 符号错误。验证方法：b[0] 应等于 r₀[0]=1500（正数），b[13]=½g·dt²=13.528（正数）。
 10. **IPOPT 不能直接用 SOC 锥**: IPOPT 不支持 `||x|| ≤ t` 形式，必须在 NLP 中写为光滑等价形式 `t² - x₁² - ... ≥ 0` 且 `t ≥ 0`。把 SOC 拆成标量 `rx≥0, ry≥0, rz≥0` 是错误做法——丢失了范数约束，结果偏差可达 23%。
+11. **acados con_h_expr 陷阱**: 路径约束在初始阶段 (k=0) 可能不生效，且 sqrt 形式约束的线性化梯度在 u≈0 处退化 (∂h/∂u≈0)。需验证约束违反量。
+
+---
+
+## 七、acados 安装 (实验性)
+
+acados 是 C 编写的嵌入式最优控制求解器，使用 SQP + HPIPM。安装步骤：
+
+```bash
+# 1. 克隆 & 编译
+sudo git clone --depth 1 --recurse-submodules \
+    https://github.com/acados/acados.git /opt/acados
+sudo chown -R $USER:$USER /opt/acados
+cd /opt/acados && mkdir build && cd build
+cmake .. -DACADOS_WITH_QPOASES=OFF -DACADOS_WITH_OSQP=OFF
+make -j$(nproc) && make install
+
+# 2. Tera 渲染器 (模板代码生成)
+curl -sL --socks5 127.0.0.1:10808 \
+    -o /opt/acados/bin/t_renderer \
+    https://github.com/acados/tera_renderer/releases/download/v0.2.0/t_renderer-v0.2.0-linux-amd64
+chmod +x /opt/acados/bin/t_renderer
+
+# 3. Python 接口
+pip3 install --break-system-packages -e /opt/acados/interfaces/acados_template
+
+# 4. 环境变量 (追加到 ~/.bashrc)
+export ACADOS_SOURCE_DIR=/opt/acados
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/acados/lib
+```
+
+**验证**: `python3 -c "from acados_template import AcadosOcp; print('OK')"`
+**运行**: `cd MarsLanding && python3 mars_acados.py`
 
 ---
 
@@ -152,7 +186,8 @@ cd ../build && make -j4       # 重新编译
 | C 手写 AVX/SCL | ECOS SOCP | 400.7 kg |
 | C 自动 | ECOS SOCP | 400.7 kg |
 | Python CVXPY | ECOS SOCP | 400.7 kg |
-| Python IPOPT | NLP | 400.7 kg |
+| Python IPOPT | NLP (光滑等价) | 400.7 kg |
+| Python acados | NLP SQP (实验性) | 待调参 |
 
 **验证命令**:
 ```bash
@@ -172,8 +207,10 @@ cd build && make -j4 && \
 | C 自动 | ECOS 2.0.10 | CasADi 生成 CCS | 400.7 kg | 0% |
 | Py CVXPY | ECOS 2.0.14 | CVXPY SOCP 建模 | 400.7 kg | 0% |
 | Py IPOPT | IPOPT 3.x | CasADi NLP (SOC光滑等价) | 400.7 kg | 0% |
+| Py acados | acados SQP | CasADi NLP (离散OCP) | 实验性 | — |
 
 > IPOPT 使用光滑等价形式 `(rx·tanθ)² - ry² - rz² ≥ 0` 和 `σ² - ‖u‖² ≥ 0` 替代原 SOC 锥约束, 与 ECOS SOCP 结果一致。
+> acados 为实验性第三求解器 (2026-07-13 新增), 使用 SQP + HPIPM 直接求解 NLP。当前因 EXACT Hessian 与线性代价导致 QP 病态, 需进一步调参。
 
 ---
 

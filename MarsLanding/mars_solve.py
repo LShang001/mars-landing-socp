@@ -107,12 +107,25 @@ if __name__=='__main__':
     print("="*60); print("  火星着陆 SOCP — Python 多求解器交叉验证")
     print("="*60); print(f"  m0={m0:.0f}kg  N={N}  dt={dt:.1f}s  θ={np.degrees(theta_gs):.1f}°")
     ref=400.7
-    for name,f in [("CVXPY+ECOS  (SOCP)",solve_cvxpy_ecos),
-                   ("CasADi+IPOPT (NLP)",solve_casadi_ipopt)]:
+    # 三求解器: ECOS SOCP, IPOPT NLP, acados SQP
+    solvers = [("CVXPY+ECOS  (SOCP)",solve_cvxpy_ecos),
+               ("CasADi+IPOPT (NLP)",solve_casadi_ipopt)]
+    # acados 可选 (需要安装并设置 ACADOS_SOURCE_DIR)
+    try:
+        from mars_acados import solve_acados
+        solvers.append(("acados SQP  (NLP)", solve_acados))
+    except ImportError:
+        print("  (acados 未安装, 跳过)")
+    for name,f in solvers:
         try:
-            fuel,label=f(); dev=(fuel-ref)/ref*100
-            print(f"  {name}: {fuel:.1f} kg ({dev:+.1f}%)")
+            result = f()
+            if result is None:
+                print(f"  {name}: 求解失败")
+            else:
+                fuel,label = result
+                dev = (fuel-ref)/ref*100
+                print(f"  {name}: {fuel:.1f} kg ({dev:+.1f}%)")
         except Exception as e:
             print(f"  {name}: ERROR {e}")
-    print(f"  C手写版 SOCP:  400.7 kg (基准)")
+    print(f"  C手写版 SOCP:  {ref} kg (基准)")
     print("="*60)

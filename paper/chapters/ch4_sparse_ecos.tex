@@ -2,7 +2,7 @@
 
 \subsection{ECOS 求解器概述}
 
-ECOS（Embedded Conic Solver）是由 embotech 公司开发的开源二阶锥规划求解器，专为嵌入式实时优化场景设计\cite{domahidi2013ecos}。其核心算法基于 Mehrotra 预测-校正原对偶内点法（Mehrotra-type Predictor-Corrector Primal-Dual Interior Point Method），该算法在每次迭代中通过求解两组线性系统——先计算仿射方向（预测步），再利用该方向信息动态调整中心化参数并计算校正方向——显著减少了达到最优解所需的迭代次数。
+ECOS（Embedded Conic Solver）是由 embotech 公司开发的开源二阶锥规划求解器~\cite{domahidi2013theory}，专为嵌入式实时优化场景设计\cite{domahidi2013ecos}。其核心算法基于 Mehrotra 预测-校正原对偶内点法（Mehrotra-type Predictor-Corrector Primal-Dual Interior Point Method），该算法在每次迭代中通过求解两组线性系统——先计算仿射方向（预测步），再利用该方向信息动态调整中心化参数并计算校正方向——显著减少了达到最优解所需的迭代次数。
 
 ECOS 接受如下标准形式的锥优化问题：
 
@@ -24,7 +24,7 @@ ECOS 接受如下标准形式的锥优化问题：
 \mathcal{K}_q = \left\{ (x_0, x_1, \ldots, x_{q-1}) \in \mathbb{R}^q \;:\; x_0 \geq \sqrt{x_1^2 + \cdots + x_{q-1}^2} \right\}.
 \end{align}
 
-ECOS 在 NASA 火星着陆 MSL 任务的后备制导系统 FNPEG 中得到工程验证，并在机器人运动规划、MPC 控制、信号处理等嵌入式场景中广泛部署。求解器以纯 C 语言实现，核心代码仅约 8000 行，无外部线性代数库依赖，通过 LDL 稀疏分解求解内点法所需的 KKT 系统。求解器核心参数如表 \ref{tab:ecos_params} 所示。
+ECOS 在 NASA 火星着陆 MSL 任务的后备制导系统 FNPEG 中得到工程验证，并在机器人运动规划、MPC 控制、信号处理等嵌入式场景中广泛部署。求解器以纯 C 语言实现，核心代码仅约 8000 行，无外部线性代数库依赖，通过 LDL 稀疏分解~\cite{davis2006amd}求解内点法所需的 KKT 系统。求解器核心参数如表 \ref{tab:ecos_params} 所示。
 
 \begin{table}[H]
 \centering

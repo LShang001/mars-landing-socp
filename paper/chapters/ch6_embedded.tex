@@ -44,7 +44,7 @@ M_{\text{total}} &= M_{\text{KKT}} + M_{\text{L}} + M_{\text{workspace}} \approx
 
 将 ECOS 的 \texttt{stgl\_alloc()} 和 \texttt{stgl\_free()} 替换为静态池的指针偏移分配器，即可完全消除运行时动态分配。
 
-\subsection{实时性分析}
+\subsection{实时性分析~\cite{verschueren2022acados}~\cite{domahidi2013ecos}}
 
 火星动力下降的制导周期通常为 100\textasciitilde{}500 ms，远快于飞行器的刚体动力学时间常数（秒级）。这一周期为 SOCP 求解提供了充足的计算时间窗口。
 

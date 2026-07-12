@@ -48,15 +48,56 @@ L.~Blackmore, B.~A{\c{c}}{\i}kme{\c{s}}e, and {John M. Carson III}, ``Lossless
 X.~Liu, P.~Lu, and B.~Pan, ``Survey of convex optimization for aerospace
   applications,'' {\em Astrodynamics}, vol.~1, no.~1, pp.~23--40, 2017.
 
+\bibitem{blackmore2010minimum}
+L.~Blackmore, B.~A{\c{c}}{\i}kme{\c{s}}e, and D.~P. Scharf,
+  ``Minimum-landing-error powered-descent guidance for {Mars} landing using
+  convex optimization,'' {\em Journal of Guidance, Control, and Dynamics},
+  vol.~33, no.~4, pp.~1161--1171, 2010.
+
 \bibitem{acikmese2013}
 B.~A{\c{c}}{\i}kme{\c{s}}e, {John M. Carson III}, and L.~Blackmore, ``Lossless
   convexification of nonconvex control bound and pointing constraints of the
   soft landing optimal control problem,'' {\em {IEEE} Transactions on Control
   Systems Technology}, vol.~21, no.~6, pp.~2104--2113, 2013.
 
+\bibitem{boyd2004convex}
+S.~Boyd and L.~Vandenberghe, {\em Convex Optimization}.
+\newblock Cambridge University Press, 2004.
+
+\bibitem{domahidi2013theory}
+A.~Domahidi, {\em Methods and Tools for Embedded Optimization and Control}.
+\newblock PhD thesis, ETH Z{\"u}rich, 2013.
+
 \bibitem{domahidi2013ecos}
 A.~Domahidi, E.~Chu, and S.~P. Boyd, ``{ECOS}: An {SOCP} solver for embedded
   systems,'' in {\em European Control Conference ({ECC})}, pp.~3071--3076,
   2013.
+
+\bibitem{davis2006amd}
+T.~A. Davis, {\em Direct Methods for Sparse Linear Systems}, vol.~2 of {\em
+  Fundamentals of Algorithms}.
+\newblock {SIAM}, 2006.
+
+\bibitem{wachter2006implementation}
+A.~W{\"a}chter and L.~T. Biegler, ``On the implementation of an interior-point
+  filter line-search algorithm for large-scale nonlinear programming,'' {\em
+  Mathematical Programming}, vol.~106, no.~1, pp.~25--57, 2006.
+
+\bibitem{andersson2019casadi}
+J.~A.~E. Andersson, J.~Gillis, G.~Horn, J.~B. Rawlings, and M.~Diehl,
+  ``{CasADi}: A software framework for nonlinear optimization and optimal
+  control,'' {\em Mathematical Programming Computation}, vol.~11, no.~1,
+  pp.~1--36, 2019.
+
+\bibitem{diamond2016cvxpy}
+S.~Diamond and S.~Boyd, ``{CVXPY}: {A} {P}ython-embedded modeling language for
+  convex optimization,'' {\em Journal of Machine Learning Research}, vol.~17,
+  no.~83, pp.~1--5, 2016.
+
+\bibitem{verschueren2022acados}
+R.~Verschueren, G.~Frison, D.~Kouzoupis, J.~Frey, N.~van Duijkeren, A.~Zanelli,
+  B.~Novoselnik, T.~Albin, R.~Quirynen, and M.~Diehl, ``{acados}---a modular
+  open-source framework for fast embedded optimal control,'' {\em Mathematical
+  Programming Computation}, vol.~14, no.~1, pp.~147--183, 2022.
 
 \end{thebibliography}

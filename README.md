@@ -18,17 +18,26 @@
 
 ```
 ecos-cn-raspberry/
-├── CMakeLists.txt              # CMake 构建配置（3 目标: avx, scalar, auto）
-├── AGENTS.md                   # 项目手册（AI 自动加载）
+├── CMakeLists.txt              # CMake 构建（4 目标: avx,scalar,auto,clarabel）
+├── CLAUDE.md                   # Claude Code 入口（@AGENTS.md 桥接）
+├── AGENTS.md                   # 项目手册（13 节, 12 条陷阱, AI 自动加载）
+├── ci/
+│   └── validate.sh             # 一键验证（7 求解器, bash ci/validate.sh）
 ├── MarsLanding/
-│   ├── MarsLanding.h           # 问题参数头文件（维度、非零元统计）
-│   ├── MarsLanding.c           # 主求解程序（手写稀疏矩阵 + ECOS求解）
-│   ├── MarsLandingAuto.c       # 自动建模版（CasADi 生成 CCS）
+│   ├── mars_params.py          # ★ 物理参数唯一来源
+│   ├── mars_solve.py           # 4 求解器交叉验证（ECOS+Clarabel+IPOPT+acados）
+│   ├── mars_model.py           # CasADi 建模 + 矩阵数值验证
+│   ├── mars_codegen.py         # CasADi → C 头文件代码生成
+│   ├── mars_acados.py          # acados SQP 惩罚法求解器
+│   ├── mars_robustness.py      # Monte Carlo 鲁棒性 + 灵敏度分析
+│   ├── MarsLanding.h           # 问题参数头文件
+│   ├── MarsLanding.c           # C 手写版（CRS→CCS + ECOS）
+│   ├── MarsLandingAuto.c       # C 自动版（CasADi 生成 CCS）
 │   ├── MarsLandingAutoData.h   # CasADi 生成的 CCS 矩阵数据
-│   ├── CRM2CCM.c               # 稀疏矩阵 CRS → CCS 格式转换
-│   ├── mars_solve.py           # Python 多求解器交叉验证
-│   ├── mars_model.py           # CasADi 建模 + 矩阵验证
-│   └── mars_codegen.py         # CasADi → C 头文件代码生成
+│   └── CRM2CCM.c               # 稀疏矩阵 CRS → CCS 格式转换
+├── benchmarks/
+│   ├── clarabel_mars.c         # Clarabel C 嵌入式 benchmark
+│   └── clarabel_float_bench.c  # Clarabel double vs float 精度对比
 ├── docs/                       # 经验文档（可复用参考）
 │   ├── ecos-soc-convention.md
 │   ├── ipopt-cross-validation.md
@@ -184,11 +193,15 @@ make -j$(nproc)
 ### 运行
 
 ```bash
-# AVX 加速版（低频率高 IPC 场景）
-./build/bin/ecos_avx
+# C 嵌入式 (4 目标)
+./build/bin/ecos_avx         # AVX2+FMA 加速版
+./build/bin/ecos_scalar      # 纯标量版
+./build/bin/ecos_auto        # CasADi 自动生成版
+./build/bin/ecos_clarabel    # Clarabel C (Rust, 备选)
 
-# 纯标量版（高频率低功耗场景）
-./build/bin/ecos_scalar
+# 一键验证
+bash ci/validate.sh          # 7 求解器（不含 acados）
+bash ci/validate.sh --full   # 含 acados + Monte Carlo
 ```
 
 ### 预期输出

@@ -198,7 +198,7 @@ def solve_acados():
                                       verbose=False, generate=True, build=True)
         except Exception as e:
             if w == weights[-1]:
-                raise  # 最后一轮失败是真失败
+                raise
             continue
 
         for k in range(N + 1):
@@ -206,22 +206,15 @@ def solve_acados():
             if k < N:
                 solver.set(k, 'u', u_guess[k])
 
-        # 抑制中间轮的 stderr 警告 (MINSTEP 预期行为)
-        if w < weights[-1]:
-            old_stderr = sys.stderr
-            sys.stderr = open(os.devnull, 'w')
-
+        # 注意: HPIPM MINSTEP 警告从 C 层直接输出, Python 无法拦截
+        # 不影响求解质量, 可安全忽略
         status = solver.solve()
 
-        if w < weights[-1]:
-            sys.stderr.close()
-            sys.stderr = old_stderr
-
-        if status == 0:
-            for k in range(N + 1):
-                x_guess[k] = solver.get(k, 'x')
-                if k < N:
-                    u_guess[k] = solver.get(k, 'u')
+    if status == 0:
+        for k in range(N + 1):
+            x_guess[k] = solver.get(k, 'x')
+            if k < N:
+                u_guess[k] = solver.get(k, 'u')
 
     # 最终结果与约束检查
     xN = solver.get(N, 'x')

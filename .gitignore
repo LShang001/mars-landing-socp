@@ -10,3 +10,4 @@ __pycache__/
 # acados generated
 MarsLanding/c_generated_code/
 MarsLanding/mars_acados.json
+clarabel_mars

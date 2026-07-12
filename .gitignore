@@ -1,4 +1,7 @@
 build/
+bin/
+obj/
+*.out
 *.o
 *.o.d
 .DS_Store

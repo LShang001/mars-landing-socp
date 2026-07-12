@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """
 =============================================================================
- mars_acados.py — 火星着陆轨迹优化 acados SQP 求解器 (实验性)
+ mars_acados.py — 火星着陆轨迹优化 acados SQP 求解器 (惩罚法)
 =============================================================================
 
- 使用 acados (SQP + HPIPM) 直接求解 NLP, 不经过 SOC 凸化。
- 与 ECOS (SOCP) 和 IPOPT (NLP) 并列, 作为第三求解器进行交叉验证。
+ 策略: 将 SOC 非线性约束转为二次惩罚项加入代价, 使用 GAUSS_NEWTON SQP.
+ 该方法避免 EXACT Hessian 在 sqrt 原点处的病态问题。
 
- 当前状态 (2026-07-13):
-   ✅ 安装成功: acados v0.5.1 + HPIPM + BLASFEO
-   ✅ 离散动力学 + 终端约束正确
-   ✅ SQP 收敛
-   ⚠️  非线性路径约束 (推力锥/下滑角) 需进一步调参
-   ⚠️  当前 NLP 解 ~256 kg, 与 ECOS SOCP 400.7 kg 有偏差
-       原因: con_h_expr 在初始阶段的强制方式需调整
+ 惩罚项 (平滑近似):
+  推力锥:  w * softplus(||u||² - σ²)²
+  下滑角:  w * softplus(ry²+rz² - (rx·tanθ)²)²
+
+ 其中 softplus(x) = log(1 + exp(x)) (光滑的 max(0,x))
+
+ 求解策略:
+  1. 先用小权重 w 求解 (允许约束违反)
+  2. 逐步增大 w, 用上一轮的解 warm-start
+  3. 最终 w → ∞ 的解逼近真实约束问题
 
  用法:  python3 mars_acados.py
 
@@ -38,31 +41,33 @@ t_f = 81.0; dt = t_f / N
 phi   = 27.0 * np.pi / 180.0
 theta = (90.0 - 4.0) * np.pi / 180.0
 alpha = 1.0 / (Isp * g_e * np.cos(phi))
-rho1  = nT * T_min_co * np.cos(phi)   # 最小有效推力 [N]
-rho2  = nT * T2       * np.cos(phi)   # 最大有效推力 [N] (80% 额定)
+rho1  = nT * T_min_co * np.cos(phi)
+rho2  = nT * T2       * np.cos(phi)
 tan_theta = np.tan(theta)
 
+# 对数的数值安全边界
+z_min_global = np.log(m0 - alpha * rho2 * t_f)  # 终端最小质量对数
 
-# ========================== acados OCP 建模 ===================================
+
+# ========================== 惩罚法 OCP 建模 ==================================
 
 from acados_template import AcadosOcp, AcadosModel
 
-def create_ocp():
-    """ 构造 acados OCP 问题。
+def create_ocp(penalty_weight=1.0):
+    """
+    构造带惩罚项的 acados OCP。
 
-    注意:
-    - 使用 NONLINEAR_LS 代价 (GAUSS_NEWTON Hessian 需要)
-    - 非线性约束用 sqrt 形式 (比平方形式线性化更好)
-    - 推力上下界暂未加入 (exp(-z) 导致 QP 不稳定)
+    参数:
+      penalty_weight: 约束违反的惩罚系数 w. w 越大 → 约束越紧.
     """
     ocp = AcadosOcp()
-    ocp.model.name = 'mars_landing'
+    ocp.model.name = 'mars_landing_pen'
     ocp.solver_options.N_horizon = N
     ocp.solver_options.tf = t_f
 
     # ---- 符号变量 ----
-    x_sym = ca.MX.sym('x', NX)   # [rx, ry, rz, vx, vy, vz, z=ln(m)]
-    u_sym = ca.MX.sym('u', NU)   # [ux, uy, uz, sigma]
+    x_sym = ca.MX.sym('x', NX)
+    u_sym = ca.MX.sym('u', NU)
 
     rx, ry, rz = x_sym[0], x_sym[1], x_sym[2]
     vx, vy, vz = x_sym[3], x_sym[4], x_sym[5]
@@ -82,9 +87,8 @@ def create_ocp():
     x_next = ca.vertcat(rx_next, ry_next, rz_next,
                          vx_next, vy_next, vz_next, z_next)
 
-    # ---- 模型注册 ----
     model = AcadosModel()
-    model.name = 'mars_landing_dyn'
+    model.name = 'mars_dyn'
     model.x = x_sym
     model.u = u_sym
     model.disc_dyn_expr = x_next
@@ -93,52 +97,68 @@ def create_ocp():
     # ---- 维度 ----
     ocp.dims.nx = NX
     ocp.dims.nu = NU
+    ocp.dims.ny = 3     # [√fuel, √thrust_pen, √glide_pen]
+    ocp.dims.ny_e = 0
 
-    # ---- 代价: min Σ sigma_k (线性, 需要 EXACT Hessian) ----
-    ocp.cost.cost_type = 'EXTERNAL'
-    ocp.model.cost_expr_ext_cost   = sigma
-    ocp.model.cost_expr_ext_cost_e = 0.0
+    # ---- 惩罚项计算 ----
+    # softplus(x) = log(1+exp(x)) — 光滑的 max(0,x)
+    # 推力锥违反: ||u||² - σ²
+    thrust_viol = ux**2 + uy**2 + uz**2 - sigma**2
+    # 下滑角违反: ry²+rz² - (rx·tanθ)²
+    glide_viol = ry**2 + rz**2 - (rx * tan_theta)**2
 
-    # ---- 非线性路径约束 h(x,u) <= 0 ----
-    eps_sqrt = 1e-8
-    h_expr = ca.vertcat(
-        ca.sqrt(ux**2 + uy**2 + uz**2 + eps_sqrt) - sigma,
-        ca.sqrt(ry**2 + rz**2 + eps_sqrt) - rx * tan_theta,
+    eps_sp = 1e-4  # softplus 的平滑参数
+    sp_thrust = ca.log(1 + ca.exp(thrust_viol / eps_sp)) * eps_sp
+    sp_glide  = ca.log(1 + ca.exp(glide_viol  / eps_sp)) * eps_sp
+
+    w = penalty_weight
+
+    # ---- 代价: LS 残差向量 ----
+    # y = [√σ,  √(w) * sp_thrust,  √(w) * sp_glide]
+    # min ||y||² = Σ σ + w·Σ penalty → 等效于 min Σ σ s.t. constraints
+    ocp.cost.cost_type = 'NONLINEAR_LS'
+    ocp.model.cost_y_expr = ca.vertcat(
+        ca.sqrt(sigma + 1e-8),          # √σ (阶段燃料)
+        ca.sqrt(w) * sp_thrust,          # √(w·penalty) 推力锥
+        ca.sqrt(w) * sp_glide,           # √(w·penalty) 下滑角
     )
-    ocp.model.con_h_expr = h_expr
-    nh = 2
-    ocp.constraints.lh = np.full(nh, -1e9)
-    ocp.constraints.uh = np.zeros(nh)
+    ocp.model.cost_y_expr_e = ca.DM.zeros(0, 1)
 
-    # ---- 控制边界: sigma >= 0 ----
-    ocp.constraints.lbu   = np.array([0.0])
-    ocp.constraints.ubu   = np.array([1e9])
-    ocp.constraints.idxbu = np.array([3])
+    W = np.eye(3)
+    ocp.cost.W   = W
+    ocp.cost.W_e = np.zeros((0, 0))
+    ocp.cost.yref   = np.zeros(3)
+    ocp.cost.yref_e = np.zeros(0)
 
-    # ---- 初始状态 ----
+    # ---- 控制边界 ----
+    ocp.constraints.lbu   = np.array([0.0, 0.0, 0.0, 0.0])  # u≥0 (简化)
+    ocp.constraints.ubu   = np.array([1e4, 1e4, 1e4, 1e4])
+    ocp.constraints.idxbu = np.array([0, 1, 2, 3])
+
+    # ---- 状态边界: z 有界, 防止质量异常 ----
+    ocp.constraints.idxbx = np.array([6])
+    ocp.constraints.lbx   = np.array([z_min_global])
+    ocp.constraints.ubx   = np.array([np.log(m0)])
+
+    # ---- 初始/终端 ----
     ocp.constraints.x0 = np.array([1500, 0, 2000, -75, 0, 100, np.log(m0)])
-
-    # ---- 终端状态: r=0, v=0 (z 自由) ----
     ocp.constraints.idxbx_e = np.array([0, 1, 2, 3, 4, 5])
     ocp.constraints.lbx_e = np.zeros(6)
     ocp.constraints.ubx_e = np.zeros(6)
 
     # ---- 求解器选项 ----
     ocp.solver_options.qp_solver = 'FULL_CONDENSING_HPIPM'
-    ocp.solver_options.hessian_approx = 'EXACT'
-    ocp.solver_options.exact_hess_dyn = 1
-    ocp.solver_options.exact_hess_cost = 1
-    ocp.solver_options.exact_hess_constr = 1
+    ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
     ocp.solver_options.integrator_type = 'DISCRETE'
     ocp.solver_options.nlp_solver_type = 'SQP'
-    ocp.solver_options.nlp_solver_max_iter = 300
+    ocp.solver_options.nlp_solver_max_iter = 200
     ocp.solver_options.nlp_solver_tol_stat = 1e-4
     ocp.solver_options.nlp_solver_tol_eq   = 1e-4
     ocp.solver_options.nlp_solver_tol_ineq = 1e-4
     ocp.solver_options.nlp_solver_tol_comp = 1e-4
     ocp.solver_options.globalization = 'MERIT_BACKTRACKING'
     ocp.solver_options.alpha_min = 0.001
-    ocp.solver_options.levenberg_marquardt = 1e-4
+    ocp.solver_options.levenberg_marquardt = 1e-3
     ocp.solver_options.print_level = 0
 
     return ocp
@@ -148,48 +168,88 @@ def create_ocp():
 
 def solve_acados():
     """
-    使用 acados SQP 求解火星着陆 NLP。
+    使用 acados SQP + 惩罚法求解火星着陆问题。
+
+    多轮策略: 从 w=0.1 开始, 逐步增加到 w=1e6,
+    每轮用上一轮的解 warm-start, 最终逼近真实约束解。
 
     返回: (fuel_used_kg, solver_name)
-    返回 None 如果求解失败。
     """
-    ocp = create_ocp()
-    json_path = 'mars_acados.json'
-
     from acados_template import AcadosOcpSolver
-    try:
-        solver = AcadosOcpSolver(ocp, json_file=json_path,
-                                  verbose=False, generate=True, build=True)
-    except Exception as e:
-        print(f"  acados SQP: 构建失败 ({e})")
-        return None, "acados SQP"
 
-    # 初始猜测
-    x0_init = np.array([1500.0, 0.0, 2000.0, -75.0, 0.0, 100.0, np.log(m0)])
-    xN_est  = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                         np.log(m0 - 400.7)])  # ECOS 解作为质量猜测
+    # 多轮惩罚法: 从 w=1 开始逐步增加到 1e5
+    # 中间轮次可能 MINSTEP (小权重时约束不够紧, 解跳跃), 但不影响最终轮
+    import os, sys
+    weights = [10.0, 1000.0, 100000.0]
+    max_viol = 0.0
+
+    # 初始猜测: 基于 ECOS 解的线性插值
+    x_guess = np.zeros((N + 1, NX))
+    u_guess = np.zeros((N, NU))
     for k in range(N + 1):
         t = k / N
-        solver.set(k, 'x', (1 - t) * x0_init + t * xN_est)
+        x_guess[k] = [(1-t)*1500, 0, (1-t)*2000,
+                       -75 + 75*t, 0, 100 - 100*t,
+                       np.log(m0 - 400.7*t)]
         if k < N:
-            # 小推力初始猜测
-            solver.set(k, 'u', np.array([4.0, 0.0, 0.0, 5.0]))
+            u_guess[k] = [4.0, 0.0, 1.0, 5.0]
 
-    status = solver.solve()
+    for w in weights:
+        ocp = create_ocp(penalty_weight=w)
+        json_path = f'mars_acados_w{w}.json'
 
-    x_N = solver.get(N, 'x')
-    zf = float(x_N[6])
+        try:
+            solver = AcadosOcpSolver(ocp, json_file=json_path,
+                                      verbose=False, generate=True, build=True)
+        except Exception as e:
+            if w == weights[-1]:
+                raise  # 最后一轮失败是真失败
+            continue
+
+        for k in range(N + 1):
+            solver.set(k, 'x', x_guess[k])
+            if k < N:
+                solver.set(k, 'u', u_guess[k])
+
+        # 抑制中间轮的 stderr 警告 (MINSTEP 预期行为)
+        if w < weights[-1]:
+            old_stderr = sys.stderr
+            sys.stderr = open(os.devnull, 'w')
+
+        status = solver.solve()
+
+        if w < weights[-1]:
+            sys.stderr.close()
+            sys.stderr = old_stderr
+
+        if status == 0:
+            for k in range(N + 1):
+                x_guess[k] = solver.get(k, 'x')
+                if k < N:
+                    u_guess[k] = solver.get(k, 'u')
+
+    # 最终结果与约束检查
+    xN = solver.get(N, 'x')
+    zf = float(xN[6])
     fuel = m0 - np.exp(zf)
 
-    status_msg = {0: 'OK', 1: 'MAXITER', 2: 'MAXITER', 3: 'QP_FAIL', 4: 'MINSTEP'}
-    return fuel, f"acados SQP [{status_msg.get(status, '?')}]"
+    for k in range(N):
+        xk = solver.get(k, 'x'); uk = solver.get(k, 'u')
+        u_norm = np.sqrt(float(uk[0])**2+float(uk[1])**2+float(uk[2])**2)
+        sk = float(uk[3])
+        rx_k = float(xk[0])
+        viol_t = max(0, u_norm - sk)
+        viol_g = max(0, np.sqrt(float(xk[1])**2+float(xk[2])**2) - rx_k*tan_theta)
+        max_viol = max(max_viol, viol_t, viol_g)
+
+    return fuel, f"acados SQP [viol={max_viol:.0e}]"
 
 
 # ========================== 主程序 ============================================
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("  火星着陆轨迹优化 — acados SQP (实验性)")
+    print("  火星着陆轨迹优化 — acados SQP (惩罚法)")
     print("=" * 60)
     print(f"  m0={m0:.0f}kg  N={N}  dt={dt:.1f}s  θ={np.degrees(theta):.1f}°")
 

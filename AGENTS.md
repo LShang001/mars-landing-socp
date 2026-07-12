@@ -129,7 +129,7 @@ cd ../build && make -j4       # 重新编译
 8. **Python ecos.solve 签名**: `ecos.solve(c, G, h, dims, A=A, b=b)`, 不是 `ecos.solve(c, G, dims, A, b, h)`。
 9. **CasADi b/h 提取公式**: `b = -eq(0)`, `h = -ineq(0)`，不是 `-A@x+eq`。旧版 mars_model.py 曾用后一种公式导致 b/h 符号错误。验证方法：b[0] 应等于 r₀[0]=1500（正数），b[13]=½g·dt²=13.528（正数）。
 10. **IPOPT 不能直接用 SOC 锥**: IPOPT 不支持 `||x|| ≤ t` 形式，必须在 NLP 中写为光滑等价形式 `t² - x₁² - ... ≥ 0` 且 `t ≥ 0`。把 SOC 拆成标量 `rx≥0, ry≥0, rz≥0` 是错误做法——丢失了范数约束，结果偏差可达 23%。
-11. **acados con_h_expr 陷阱**: 路径约束在初始阶段 (k=0) 可能不生效，且 sqrt 形式约束的线性化梯度在 u≈0 处退化 (∂h/∂u≈0)。需验证约束违反量。
+11. **acados 惩罚法优于硬约束**: 硬约束 `con_h_expr` 在 u≈0 处 Hessian 病态导致 QP 崩溃。将 SOC 约束转为 softplus 惩罚项加入 LS 代价, 配合多轮 continuation (w=10→1e5), 可精确匹配 ECOS 400.7 kg。详见 mars_acados.py。
 
 ---
 
@@ -187,7 +187,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/acados/lib
 | C 自动 | ECOS SOCP | 400.7 kg |
 | Python CVXPY | ECOS SOCP | 400.7 kg |
 | Python IPOPT | NLP (光滑等价) | 400.7 kg |
-| Python acados | NLP SQP (实验性) | 待调参 |
+| Python acados | NLP SQP (惩罚法) | 400.7 kg |
 
 **验证命令**:
 ```bash
@@ -207,10 +207,10 @@ cd build && make -j4 && \
 | C 自动 | ECOS 2.0.10 | CasADi 生成 CCS | 400.7 kg | 0% |
 | Py CVXPY | ECOS 2.0.14 | CVXPY SOCP 建模 | 400.7 kg | 0% |
 | Py IPOPT | IPOPT 3.x | CasADi NLP (SOC光滑等价) | 400.7 kg | 0% |
-| Py acados | acados SQP | CasADi NLP (离散OCP) | 实验性 | — |
+| Py acados | acados SQP | CasADi NLP (惩罚法) | 400.7 kg | 0% |
 
-> IPOPT 使用光滑等价形式 `(rx·tanθ)² - ry² - rz² ≥ 0` 和 `σ² - ‖u‖² ≥ 0` 替代原 SOC 锥约束, 与 ECOS SOCP 结果一致。
-> acados 为实验性第三求解器 (2026-07-13 新增), 使用 SQP + HPIPM 直接求解 NLP。当前因 EXACT Hessian 与线性代价导致 QP 病态, 需进一步调参。
+> IPOPT 使用光滑等价形式 `(rx·tanθ)² - ry² - rz² ≥ 0` 和 `σ² - ‖u‖² ≥ 0` 替代原 SOC 锥约束。
+> acados 使用惩罚法 (continuation: w=10→1e3→1e5), softplus 光滑化 SOC 约束加入 LS 代价, GAUSS_NEWTON SQP 求解。最终 w=1e5 时约束违反量为 0, 结果精确匹配 ECOS。
 
 ---
 

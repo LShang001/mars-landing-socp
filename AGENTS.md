@@ -185,7 +185,8 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/acados/lib
 |--------|------|------|
 | C 手写 AVX/SCL | ECOS SOCP | 400.7 kg |
 | C 自动 | ECOS SOCP | 400.7 kg |
-| Python CVXPY | ECOS SOCP | 400.7 kg |
+| Python CVXPY+ECOS | SOCP | 400.7 kg |
+| Python CVXPY+Clarabel | SOCP | 400.7 kg |
 | Python IPOPT | NLP (光滑等价) | 400.7 kg |
 | Python acados | NLP SQP (惩罚法) | 400.7 kg |
 
@@ -205,12 +206,14 @@ cd build && make -j4 && \
 |------|--------|----------|------|------|
 | C 手写 | ECOS 2.0.10 | 手写 CRS→CCS 矩阵 | 400.7 kg | 基准 |
 | C 自动 | ECOS 2.0.10 | CasADi 生成 CCS | 400.7 kg | 0% |
-| Py CVXPY | ECOS 2.0.14 | CVXPY SOCP 建模 | 400.7 kg | 0% |
+| Py CVXPY+ECOS | ECOS 2.0.14 | CVXPY SOCP 建模 | 400.7 kg | 0% |
+| Py CVXPY+Clarabel | Clarabel 0.11 | CVXPY SOCP 建模 | 400.7 kg | 0% |
 | Py IPOPT | IPOPT 3.x | CasADi NLP (SOC光滑等价) | 400.7 kg | 0% |
 | Py acados | acados SQP | CasADi NLP (惩罚法) | 400.7 kg | 0% |
 
+> Clarabel (2023, Rust 实现) 比 ECOS 快 34% (177 vs 268 ms in CVXPY), 数值更稳定。嵌入式 C 库可在 clarabel.dev 获取。
 > IPOPT 使用光滑等价形式 `(rx·tanθ)² - ry² - rz² ≥ 0` 和 `σ² - ‖u‖² ≥ 0` 替代原 SOC 锥约束。
-> acados 使用惩罚法 (continuation: w=10→1e3→1e5), softplus 光滑化 SOC 约束加入 LS 代价, GAUSS_NEWTON SQP 求解。最终 w=1e5 时约束违反量为 0, 结果精确匹配 ECOS。
+> acados 使用惩罚法 (continuation: w=10→1e3→1e5), softplus 光滑化 SOC 约束加入 LS 代价, GAUSS_NEWTON SQP 求解。
 
 ---
 

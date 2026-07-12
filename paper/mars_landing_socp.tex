@@ -1,0 +1,81 @@
+\documentclass[11pt,a4paper,twocolumn]{article}
+
+% --- 中文与编码 ---
+\usepackage[UTF8]{ctex}
+
+% --- 数学 ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{bm}
+
+% --- 插图与表格 ---
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% --- 页面与版式 ---
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm]{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=blue,
+    urlcolor=blue,
+}
+\usepackage{cite}
+
+% --- 算法 ---
+\usepackage{algpseudocode}
+\usepackage{algorithm}
+\usepackage{listings}
+
+% --- 绘图 ---
+\usepackage{tikz}
+\usetikzlibrary{arrows,shapes,positioning,calc}
+
+% --- 标题信息 ---
+\title{基于稀疏二阶锥规划的火星动力下降轨迹优化}
+\author{LShang}
+\date{\today}
+
+% --- 页眉页脚 ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small 基于稀疏二阶锥规划的火星动力下降轨迹优化}
+\fancyhead[R]{\small LShang}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- 定理环境 ---
+\newtheorem{theorem}{定理}[section]
+\newtheorem{lemma}{引理}[section]
+\newtheorem{definition}{定义}[section]
+\newtheorem{corollary}{推论}[section]
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+本文以火星动力下降段轨迹优化为工程背景，围绕序列锥规划（Sequential Convex Programming, SCP）框架下的二阶锥规划（Second-Order Cone Programming, SOCP）问题展开研究。针对动力下降段中推力幅值禁带约束、下滑角约束和终端状态约束等非凸因素，采用无损凸化技术将其等价转换为凸约束，建立标准SOCP问题的完整数学形式。为实现嵌入式环境下的高效求解，本文手工构造了完整的稀疏矩阵数据结构，其中等式约束Jacobian矩阵包含733个非零元，不等式约束Jacobian矩阵包含403个非零元，完全消除对通用建模工具（CVXPY、YALMIP等）的运行时依赖。在此基础上构建了涵盖六种求解器形态的交叉验证体系：通用内点求解器ECOS与Clarabel、非线性规划求解器IPOPT、嵌入式求解器acados，以及两种自主实现的C语言求解器。六套求解器在相同SOCP问题上独立计算，最终燃耗结果均收敛于400.7~kg，与文献中的黄金基准严格一致，验证了SOCP建模的正确性与求解器的数值可靠性。此外，针对嵌入式部署需求，本文在x86平台完成了求解器的内存占用与计算延迟评估，为后续星载实现提供了基础数据支撑。
+\end{abstract}
+
+% --- 各章引入 ---
+\input{chapters/ch1_intro}
+\input{chapters/ch2_formulation}
+\input{chapters/ch3_convexification}
+\input{chapters/ch4_sparse_ecos}
+\input{chapters/ch5_results}
+\input{chapters/ch6_embedded}
+\input{chapters/ch7_conclusion}
+
+% --- 参考文献 ---
+\bibliographystyle{ieeetr}
+\bibliography{refs}
+
+\end{document}

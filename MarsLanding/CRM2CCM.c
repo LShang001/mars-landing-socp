@@ -1,6 +1,6 @@
 /**
  * ===========================================================================
- * CRM2CCM.c — 稀疏矩阵格式转换: CRS (行压缩) → CCS (列压缩)
+ * crm_to_ccm.c — 稀疏矩阵格式转换: CRS (行压缩) → CCS (列压缩)
  * ===========================================================================
  *
  * 【背景】
@@ -35,7 +35,7 @@
 
 #include "glblopts.h"
 
-void CRM2CCM(
+void crm_to_ccm(
     idxint CRMjc[], idxint CRMir[], pfloat CRMpr[],
     idxint CCMjc[], idxint CCMir[], pfloat CCMpr[],
     idxint m, idxint n, idxint nnz, idxint w[])

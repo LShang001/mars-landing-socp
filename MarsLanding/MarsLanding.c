@@ -11,7 +11,7 @@
  * 【求解方法】
  *   1. 直接转录法离散化为 N=30 步
  *   2. 手写构造 CRS 格式稀疏矩阵 A (等式约束) 和 G (不等式约束+锥约束)
- *   3. CRM2CCM 转换为 ECOS 所需的 CCS 格式
+ *   3. crm_to_ccm 转换为 ECOS 所需的 CCS 格式
  *   4. ECOS 内点法求解 SOCP
  *   5. 循环 1000 次取平均性能（消除冷启动偏差）
  *
@@ -123,7 +123,7 @@ int main(void)
     pfloat CCGpr[NNZG];                       /* G数值              */
 
     /* 临时工作区 */
-    idxint wA[N_VAR], wG[N_VAR];             /* CRM2CCM 工作数组   */
+    idxint wA[N_VAR], wG[N_VAR];             /* crm_to_ccm 工作数组   */
 
     /* ---- ECOS 输入 ---- */
     pfloat c[N_VAR];                          /* 目标函数系数       */
@@ -366,8 +366,8 @@ int main(void)
     /* =====================================================================
      * 第五部分 — CRS → CCS 格式转换
      * ===================================================================== */
-    CRM2CCM(CRAjc, CRAir, CRApr, CCAjc, CCAir, CCApr, P_EQ, N_VAR, NNZA, wA);
-    CRM2CCM(CRGjc, CRGir, CRGpr, CCGjc, CCGir, CCGpr, M_G, N_VAR, NNZG, wG);
+    crm_to_ccm(CRAjc, CRAir, CRApr, CCAjc, CCAir, CCApr, P_EQ, N_VAR, NNZA, wA);
+    crm_to_ccm(CRGjc, CRGir, CRGpr, CCGjc, CCGir, CCGpr, M_G, N_VAR, NNZG, wG);
 
     /* =====================================================================
      * 第六部分 — ECOS 求解器配置与循环求解

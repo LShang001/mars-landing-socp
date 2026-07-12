@@ -1,0 +1,173 @@
+\section{嵌入式部署讨论}
+
+\subsection{嵌入式硬件平台分析}
+
+本章讨论将前文实现的稀疏 ECOS 求解算法部署至嵌入式飞行计算机的可行性。当前算法开发与验证依托于 Intel N150 平台（Gracemont 小核架构，8 GB RAM），该平台功耗约 6\textasciitilde{}10 W，属于 x86 低功耗产品线。然而，实际航天飞行计算机通常采用 ARM Cortex-M 或 RISC-V 内核的微控制器（MCU），其计算资源较 N150 低数个数量级，对算法及实现有完全不同的约束。
+
+目标部署平台选用 ARM Cortex-M7 内核微控制器。Cortex-M7 是 ARMv7-M 架构中性能最高的 MCU 内核，支持双精度浮点运算单元（FPU），主频通常为 200\textasciitilde{}600 MHz，典型片上 SRAM 为 512 KB\textasciitilde{}2 MB。对于火星着陆这类航天制导控制应用，选用具备双精度 FPU 的 M7 而非 M4（单精度 FPU）或 M3（无硬件 FPU）至关重要。
+
+双精度浮点运算的强制性已在实践中得到充分验证。本课题组此前在 Clarabel 求解器上进行了单精度（float）对比实验：相同 SOCP 问题、相同锥约束，仅将求解器数值类型从 double 切换为 float，所得燃料消耗从 400.7 kg 剧增至 1880+ kg，相对误差达 375\%。这一巨大偏差的根本原因在于该问题的数值动态范围极端：位置状态量级约 $10^3$ m，而质量对数状态 $\ln m$ 的下界约 $7.3$，其指数 $\exp(-z)$ 量级仅约 $10^{-4}$，贯穿 KKT 系统的条件数达到 $10^8$。IEEE 754 单精度浮点数仅约 7 位有效十进制数字，在 $10^8$ 条件数下求解线性系统时损失的精度远超收敛容差。双精度提供约 16 位有效数字，可安全容纳此动态范围。因此目标平台必须配备双精度 FPU，Cortex-M7 的 FPv5 硬浮点单元满足此需求。
+
+M7 内核的双精度 FPU 采用单发射流水线，双精度乘法延迟通常为 3\textasciitilde{}5 周期，双精度除法为 15\textasciitilde{}20 周期，显著慢于单精度但远优于软件浮点模拟（后者每次运算需数百周期）。ECOS 求解器的核心计算负载为 LDL 稀疏分解和三角回代，其运算模式为稀疏点积与标量除法，硬浮点支持可将这些操作缩短至数十纳秒量级。
+
+\subsection{内存占用分析}
+
+嵌入式 MCU 的内存约束是算法部署面临的核心挑战。片上 SRAM 以 MB 计，不同于 N150 平台数 GB 的 DDR 内存，必须逐字节精打细算。
+
+KKT 系统是内存占用的主要来源。该问题的 KKT 矩阵维度为 $1023 \times 1023$（对应 341 个变量的原始-对偶系统），对 ECOS 使用 LDL 分解的 KKT 格式而言，仅存储上三角部分。当前手写版构造的 KKT 上三角非零元约 2531 个，各非零元以双精度浮点数（8 字节）配合行列索引（int，各 4 字节）存储，采用压缩列存储（CCS）格式。CCS 格式由列指针（$n+1=1024$ 个 int）、行索引（nnz 个 int）、数值（nnz 个 double）三数组组成，对 2531 非零元的存储开销约为：
+
+\begin{align}
+\text{CCS\_KKT} &= 1024 \times 4 + 2531 \times (4 + 8) = 34.4\ \text{KB}.
+\end{align}
+
+LDL 因子 $\bm{L}$ 的填充（fill-in）是主要不确定因素。通过近似最小度（AMD）排序可以显著减少填充量。ECOS 内部集成了 AMD 预处理，在典型火星着陆问题中，$\bm{L}$ 的非零元填充至约 5000\textasciitilde{}15000，稀疏度取决于 AMD 排序的有效性和 KKT 矩阵的结构。LDL 因子同样以 CCS 格式存储，按上限 15000 非零元估算：
+
+\begin{align}
+\text{CCS\_L} &= (n+1) \times 4 + 15000 \times (4 + 8) \approx 184.0\ \text{KB}.
+\end{align}
+
+求解器运行时还需要若干工作向量：残差向量（$n$ 个 double，约 8 KB）、搜索方向（$n+1$ 个 double，约 8 KB）、原始与对偶变量（各 $n$ 个 double，约 16 KB）、锥投影临时变量等，合计约 50\textasciitilde{}70 KB。叠加 KKT 与 LDL 因子后，ECOS 求解器总堆内存需求为：
+
+\begin{align}
+M_{\text{total}} &= M_{\text{KKT}} + M_{\text{L}} + M_{\text{workspace}} \approx 34 + 184 + 70 = 288\ \text{KB}.
+\end{align}
+
+考虑实际运行时的临时缓冲区和内存碎片，安全估计为 400\textasciitilde{}700 KB。对于典型配置 1 MB SRAM 的 Cortex-M7（如 STM32H7 系列），这一需求占总量约 40\textasciitilde{}70\%，可以容纳，但已无充裕余量。
+
+当前 ECOS 求解器使用标准库的 \texttt{malloc}/\texttt{free} 进行动态内存分配。在空间应用中，动态内存分配存在两大风险：一是内存碎片化导致长时间运行后分配失败；二是分配时间不可预测，违背硬实时约束。为此，必须将动态分配改造为编译期预分配的静态内存池。
+
+改造方案如下：基于目标问题的维度（变量数 $n=341$、约束数 $m=341$、非零元数等），通过离线的内存预算分析，预计算 LDL 分解在最坏情况下的填充上限。在初始化阶段从静态池中一次性分配所有缓冲区，求解过程中不再进行任何动态分配。静态池的大小在编译期确定，作为宏定义写入头文件：
+
+\begin{align}
+\#\text{define STATIC\_POOL\_SIZE}\ (1024 * 700) \quad //\ 700\ \text{KB}
+\end{align}
+
+将 ECOS 的 \texttt{stgl\_alloc()} 和 \texttt{stgl\_free()} 替换为静态池的指针偏移分配器，即可完全消除运行时动态分配。
+
+\subsection{实时性分析}
+
+火星动力下降的制导周期通常为 100\textasciitilde{}500 ms，远快于飞行器的刚体动力学时间常数（秒级）。这一周期为 SOCP 求解提供了充足的计算时间窗口。
+
+Intel N150 平台实测单次 ECOS 求解平均耗时约 8 $\mu$s（取内点法迭代次数 8\textasciitilde{}12 次均值，Release 模式）。移植至 Cortex-M7 后的性能可通过运算特征估算。分析 ECOS 求解器的计算热点分布如表 \ref{tab:ecos_hotspots} 所示。
+
+\begin{table}[htbp]
+\centering
+\caption{ECOS 求解器计算热点分布}
+\label{tab:ecos_hotspots}
+\begin{tabular}{clc}
+\toprule
+计算阶段 & 操作特征 & N150 耗时占比 \\
+\midrule
+LDL 分解 & 稀疏点积、除法（内存延迟主导） & 45\textasciitilde{}55\% \\
+三角回代 & 稀疏前代/回代（内存延迟主导） & 15\textasciitilde{}20\% \\
+KKT 组装 & 矩阵向量运算 & 10\textasciitilde{}15\% \\
+锥投影 & 标量运算、分支判断 & 5\textasciitilde{}10\% \\
+余项计算 & 向量点积、2-范数 & 5\textasciitilde{}10\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+稀疏 LDL 分解和三角回代是耗时最长的两个阶段，均以稀疏矩阵向量运算为主。在 N150 上，这些操作的核心瓶颈是内存带宽而非计算吞吐——不规则的内存访问模式（CCS 格式的 gather/scatter）使得处理器频繁等待缓存未命中。Cortex-M7 的 SRAM 通常挂载在紧耦合内存总线上，访问延迟低（通常在 2\textasciitilde{}5 周期），无 DDR 的片外访问延迟。因此，在同样 8 次迭代、同样问题规模下，M7 上的内存延迟惩罚较小，但主频差距显著。
+
+估算目标性能时遵循以下假设：N150（Gracemont 小核）等效单线程性能约 4000 DMIPS，Cortex-M7 在 480 MHz 下约 1200 DMIPS，两者比值为 3.3。LDL 分解的 O(nnz) 模型中计算与访存交织，实际 IPC 差异相对较小，保守估计综合性能比为 5\textasciitilde{}10 倍。由此得：
+
+\begin{align}
+t_{\text{M7}} = 8\ \mu\text{s} \times (5 \sim 10) \approx 40 \sim 80\ \mu\text{s}.
+\end{align}
+
+但上述估算未考虑 LLVM/GCC 向量化和架构差异，更保守的上限估计考虑 Cortex-M7 无 SIMD 单元且分支预测能力较弱，给出 200\textasciitilde{}500 $\mu$s 的单次求解时间。
+
+即使取最保守估计 500 $\mu$s，与 100 ms 的制导周期相比仅占 0.5\%。在周期剩余部分，飞行计算机还需完成导航滤波（通常为扩展卡尔曼滤波器，约需 1\textasciitilde{}5 ms）、姿态控制律计算（约需 0.1\textasciitilde{}0.5 ms）、遥测数据打包等任务。图 \ref{fig:timing_budget} 展示了完整周期的时间预算分配。
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[scale=0.6]
+  \draw[thick] (0,0) -- (20,0);
+  \foreach \x in {0,2,...,20} \draw (\x,-0.1) -- (\x,0.1);
+  \node[above] at (0,0.3) {0 ms};
+  \node[above] at (10,0.3) {50 ms};
+  \node[above] at (20,0.3) {100 ms};
+
+  \fill[blue!30] (0,0.5) rectangle (0.01,1.0);
+  \node[above] at (0.005,1.1) {\tiny SOCP};
+
+  \fill[green!30] (0.5,0.5) rectangle (5.5,1.0);
+  \node[above] at (3.0,1.1) {\tiny 导航滤波};
+
+  \fill[orange!30] (6.0,0.5) rectangle (6.5,1.0);
+  \node[above] at (6.25,1.1) {\tiny 姿态控制};
+
+  \fill[gray!20] (7.0,0.5) rectangle (8.5,1.0);
+  \node[above] at (7.75,1.1) {\tiny 余量};
+\end{tikzpicture}
+\caption{制导周期时间预算分配（100 ms 周期）}
+\label{fig:timing_budget}
+\end{figure}
+
+此外，SOCP 求解之前的矩阵构造阶段（将问题状态量组装为 KKT 系统）可忽略不计。当前手写 C 版本的矩阵构造采用预计算的符号非零元结构，每次求解仅需回调约 3400 次浮点赋值操作，实测耗时小于 0.01 ms。该阶段无需 CSP（约束满足问题）求解或动态数据结构的构建，在 M7 上预计也仅需 0.05\textasciitilde{}0.1 ms。
+
+值得注意的是，ECOS 内点法的迭代次数受问题数值条件影响：在终端接近精确着陆条件时，KKT 矩阵可能发生近奇异现象，导致迭代次数增加至 15\textasciitilde{}20 次。极端情况下，纯内点法可能需要额外的迭代精化（iterative refinement）步骤以恢复数值精度。ECOS 默认的迭代精化步数为 9（参见参数 \texttt{NITREF}），若保留此设置，每次迭代精化相当于一次额外的三角回代，对总求解时间影响约 15\textasciitilde{}25\%。
+
+\subsection{交叉编译策略}
+
+将 ECOS 求解器部署至 Cortex-M7 需要完整的交叉编译工具链支持。项目选用 \texttt{arm-none-eabi-gcc} 工具链配合 Newlib C 标准库实现。
+
+工具链配置的核心是目标 Triple 的选择。Cortex-M7 支持双精度 FPU，使用 ARMv7-M 架构的 FPv5 扩展，对应的 GCC 选项为：
+
+\begin{align}
+\text{CFLAGS} &= \texttt{-mcpu=cortex-m7 -mthumb} \notag \\
+&\quad \texttt{-mfloat-abi=hard -mfpu=fpv5-d16} \notag \\
+&\quad \texttt{-Os -ffunction-sections -fdata-sections}.
+\end{align}
+
+其中 \texttt{-mfloat-abi=hard} 使用硬浮点调用约定，所有浮点参数通过 FPU 寄存器传递，避免通过通用寄存器转发的开销。\texttt{-mfpu=fpv5-d16} 表示使用包含 16 个双精度寄存器的 FPv5 扩展。\texttt{-Os} 优化尺寸模式对嵌入式部署至关重要：MCU 的 Flash 容量通常为 1\textasciitilde{}2 MB，而 ECOS 核心代码约 8000 行，经 \texttt{-Os} 编译后二进制体积可压缩至约 100\textasciitilde{}150 KB。
+
+\texttt{arm-none-eabi-newlib} 作为 C 标准库运行时，提供基本的数学函数实现。ECOS 求解器依赖 \texttt{<math.h>} 中的 \texttt{sqrt}、\texttt{exp}、\texttt{pow} 等函数。Newlib 的数学库分为双精度（libm.a）和单精度（libm\_f.a）两套实现，链接时需确保使用双精度版本：
+
+\begin{align}
+\texttt{LIBS} &= \texttt{-lm -lc -lgcc}.
+\end{align}
+
+Newlib 的 \texttt{sqrt} 和 \texttt{exp} 在 ARM 架构下通常调用硬浮点指令（VSQRT.F64 和 VEXP.F64 或软件模拟），其性能取决于 M7 内核是否实现这些指令。Cortex-M7 的 FPv5 支持 VSQRT 指令，双精度平方根延迟约 20 周期；指数函数通常通过查表加多项式逼近实现，约需 50\textasciitilde{}100 周期。
+
+如前文所述，必须替换 \texttt{malloc}/\texttt{free}。ECOS 的内存分配集中于少数几个固定大小的缓冲区，适合采用极简的静态池方案。改造在 ECOS 的 \texttt{include/ecos/glblopts.h} 中添加预分配宏：
+
+\begin{align}
+\#\text{define USE\_STATIC\_POOL}\ 1
+\end{align}
+
+并在 \texttt{src/cone.c} 中将 \texttt{stgl\_alloc} 替换为：
+
+\begin{align}
+\#\text{define stgl\_alloc(s)}\ \_\_pool\_alloc(s)
+\#\text{define stgl\_free(p)}\ \_\_pool\_free(p)
+\end{align}
+
+其中 \texttt{\_\_pool\_alloc} 及 \texttt{\_\_pool\_free} 的实现仅在静态缓冲区内做指针偏移与回滚，单次分配/释放仅需约 5\textasciitilde{}10 条指令，无锁、无碎片、O(1) 时间复杂度。
+
+\subsection{飞行计算机集成路线}
+
+将上述 SOCP 求解算法集成至完整的飞行计算机软件栈中，涉及导航、制导、控制三层的闭环工作流程。对于火星动力下降阶段，典型的计算流程如下：
+
+\begin{enumerate}
+  \item \textbf{导航滤波器}：接收 IMU 加速度计与陀螺仪数据，结合雷达高度计或视觉测距（如 NASA 的 Lander Vision System）给出飞行器位置 $\bm{r}$、速度 $\bm{v}$、姿态的估计值，更新频率通常为 100\textasciitilde{}1000 Hz。
+  \item \textbf{SOCP 轨迹生成}：以导航滤波器输出的当前状态作为初始条件，调用 ECOS 求解器重新求解 SOCP 问题，生成当前到终端状态的最优轨迹。此步骤执行频率较低（10 Hz，即每 100 ms 一次），与制导周期匹配。
+  \item \textbf{姿态控制器}：从 SOCP 输出的推力向量 $\bm{u}^*$ 解析出期望推力大小和方向，通过姿态控制律（通常为 PD/PID 或滑模控制）分配到 6 台发动机的点火指令。
+  \item \textbf{故障检测与重规划}：实时监测导航状态与 SOCP 预测轨迹的偏差。当偏差超过预设阈值（如位置偏差 $> 50$ m 或速度偏差 $> 10$ m/s），触发重规划信号，强制进入下一制导周期重新求解 SOCP。
+\end{enumerate}
+
+在以上流程中，SOCP 求解结果的质量直接决定着陆精度。当前 3-DOF 模型求解输出的期望推力 $\bm{u}^*$ 需要转换为姿态指令（期望俯仰角和偏航角），由姿态内环跟踪。由于姿态响应时间远快于位置动力学（通常姿态时间常数 $< 0.5$ s，而位置时间常数约 5\textasciitilde{}10 s），姿态跟踪延迟对制导精度的影响可忽略。
+
+故障检测与重规划机制是安全关键系统的核心保障。当大气密度、风速等环境参数偏离标称值，或发动机实际推力与标称值出现偏差时，制导律必须能够在线调整。当前 SOCP 问题每次求解所需的 200\textasciitilde{}500 $\mu$s 使得重规划可在同一控制周期内完成，无需跨周期等待。这一能力相比传统基于查表或离线轨迹跟踪的制导方案提供了显著更强的鲁棒性。
+
+\subsection{当前局限与未来工作}
+
+当前实现存在若干简化假设，以下分别讨论其对实际飞行的影响及后续改进方向。
+
+\textbf{无大气阻力模型}：当前动力学模型完全忽略大气阻力。火星大气密度极低，仅为地球的约 1\%（表面大气压约 600 Pa），在动力下降段飞行速度从约 150 m/s 降至 0，动压峰值约 100\textasciitilde{}300 Pa，对应阻力加速度约 $0.01\sim0.1\,\text{m/s}^2$，与火星重力（$3.7114\ \text{m/s}^2$）相比小 1\textasciitilde{}2 个数量级。在燃料优化问题中忽略此量级的阻力导致的终端位置偏差约 1\textasciitilde{}5 m，在可接受范围内。
+
+\textbf{3-DOF 质点模型，无姿态耦合}：当前模型将飞行器简化为质点，仅考虑平动动力学，忽略姿态与推力的耦合效应。实际飞行中，推力方向受限于飞行器当前的姿态角速率和最大角加速度，不能瞬时改变。单台发动机的推力方向固定（安装倾角 ${27}^{\circ}$），合力方向由各台发动机的节流分配共同决定，存在耦合约束。将 3-DOF 模型扩展为 6-DOF 刚体模型（包含 3 个平动自由度和 3 个转动自由度）将使问题维度大幅增加——每步决策变量从 11 维增至 18 维，约束数量相应增加。SOCP 问题规模预计膨胀至约 $n=558$、$m=558$，KkT 矩阵非零元约 4000\textasciitilde{}6000。但 ECOS 求解器的稀疏 LDL 分解算法及 AMD 排序能力仍可应对这一规模，单次求解时间预计在 Cortex-M7 上仍低于 5 ms，不影响 100 ms 的制导周期。
+
+\textbf{固定终端时间，未优化着陆时间}：当前终端时间 $t_f = 81$ s 为固定值，由离线预设确定。实际任务中，最优着陆时间随初始状态和气象条件而变化。若将 $t_f$ 纳入优化变量，问题将从定终端时间的最优控制变为变终端时间问题。一种处理策略是将 $t_f$ 作为外层搜索变量，由黄金分割法或二分法在合理区间（如 70\textasciitilde{}100 s）内迭代调用 ECOS 求解。外层搜索通常仅需 5\textasciitilde{}10 次迭代，每次迭代需求解一次 SOCP，总计算时间约 5\textasciitilde{}10 ms，仍在可接受范围内。
+
+上述局限为后续工作指明了三个方向：引入大气阻力模型（通过增加海拔高度相关的指数密度剖面）、将 SOCP 拓展至 6-DOF 刚体模型（需处理姿态与推力之间的旋转耦合约束）、以及变终端时间外层优化。这三项增强可逐步集成，每项增强对求解时间的影响均可通过前文所述的方法进行预算与验证。

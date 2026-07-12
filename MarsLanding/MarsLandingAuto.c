@@ -23,9 +23,7 @@
 #include <math.h>
 #include <time.h>
 
-#define N   30
-#define NX  7
-#define NU  4
+#include "MarsLanding.h"
 
 int main(void)
 {
@@ -54,7 +52,14 @@ int main(void)
     if(!w){ printf("ERROR: ECOS_setup failed\n"); return 1; }
 
     clock_t t0=clock();
-    for(int r=0;r<1000;r++) ECOS_solve(w);
+    idxint exitflag;
+    for(int r=0;r<1000;r++) {
+        exitflag = ECOS_solve(w);
+        if (exitflag != ECOS_OPTIMAL) {
+            printf("WARNING: 第 %d 次求解未达最优 (exitflag=%d)\n",
+                   r + 1, (int)exitflag);
+        }
+    }
     double ms=(double)(clock()-t0)/CLOCKS_PER_SEC*1000;
 
     double zf=w->x[N*(NX+NU)+6], fuel=1905.0-exp(zf);

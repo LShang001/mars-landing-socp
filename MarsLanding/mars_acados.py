@@ -103,8 +103,19 @@ def create_ocp(penalty_weight=1.0):
     glide_viol = ry**2 + rz**2 - (rx * tan_theta)**2
 
     eps_sp = 1e-4  # softplus 的平滑参数
-    sp_thrust = ca.log(1 + ca.exp(thrust_viol / eps_sp)) * eps_sp
-    sp_glide  = ca.log(1 + ca.exp(glide_viol  / eps_sp)) * eps_sp
+
+    # 分段安全的 softplus: 避免 exp(x/eps) 在 x 很大时溢出
+    # x/eps > 20  →  x  (线性区, 避免 exp 计算)
+    # x/eps < -20 →  0  (近似为 0)
+    # 其他        →  eps * log(1 + exp(x/eps))
+    def safe_softplus(x):
+        ratio = x / eps_sp
+        return ca.if_else(ratio > 20, x,
+               ca.if_else(ratio < -20, ca.DM(0),
+                          ca.log(1 + ca.exp(ratio)) * eps_sp))
+
+    sp_thrust = safe_softplus(thrust_viol)
+    sp_glide  = safe_softplus(glide_viol)
 
     w = penalty_weight
 
@@ -126,9 +137,10 @@ def create_ocp(penalty_weight=1.0):
     ocp.cost.yref_e = np.zeros(0)
 
     # ---- 控制边界 ----
-    ocp.constraints.lbu   = np.array([0.0, 0.0, 0.0, 0.0])  # u≥0 (简化)
-    ocp.constraints.ubu   = np.array([1e4, 1e4, 1e4, 1e4])
-    ocp.constraints.idxbu = np.array([0, 1, 2, 3])
+    # 只对 sigma 设下界, ux/uy/uz 无符号限制 (uz 必须为负以制动)
+    ocp.constraints.lbu   = np.array([0.0])
+    ocp.constraints.ubu   = np.array([1e4])
+    ocp.constraints.idxbu = np.array([3])  # sigma 在 u 中的索引
 
     # ---- 状态边界: z 有界, 防止质量异常 ----
     ocp.constraints.idxbx = np.array([6])
@@ -165,14 +177,14 @@ def solve_acados():
     """
     使用 acados SQP + 惩罚法求解火星着陆问题。
 
-    多轮策略: 从 w=0.1 开始, 逐步增加到 w=1e6,
+    多轮策略: 从 w=10 开始, 逐步增加到 w=1e5,
     每轮用上一轮的解 warm-start, 最终逼近真实约束解。
 
-    返回: (fuel_used_kg, solver_name)
+    返回: (fuel_used_kg, solver_name) 或 None (求解失败)
     """
     from acados_template import AcadosOcpSolver
 
-    # 多轮惩罚法: 从 w=1 开始逐步增加到 1e5
+    # 多轮惩罚法: 从 w=10 开始逐步增加到 1e5
     # 中间轮次可能 MINSTEP (小权重时约束不够紧, 解跳跃), 但不影响最终轮
     import os, sys
     weights = [10.0, 1000.0, 100000.0]
@@ -189,6 +201,7 @@ def solve_acados():
         if k < N:
             u_guess[k] = [4.0, 0.0, 1.0, 5.0]
 
+    status = -1  # 默认失败状态
     for w in weights:
         ocp = create_ocp(penalty_weight=w)
         json_path = f'mars_acados_w{w}.json'
@@ -208,15 +221,24 @@ def solve_acados():
 
         # 注意: HPIPM MINSTEP 警告从 C 层直接输出, Python 无法拦截
         # 不影响求解质量, 可安全忽略
-        status = solver.solve()
+        try:
+            status = solver.solve()
+        except Exception as e:
+            if w == weights[-1]:
+                raise
+            continue
 
-    if status == 0:
+        # 更新 warm-start 猜测, 使下一轮从更好的起点开始
+        # 即使 status != 0 (如 maxiter), 部分收敛的解也是更好的初始猜测
         for k in range(N + 1):
             x_guess[k] = solver.get(k, 'x')
             if k < N:
                 u_guess[k] = solver.get(k, 'u')
 
     # 最终结果与约束检查
+    if status != 0:
+        return None
+
     xN = solver.get(N, 'x')
     zf = float(xN[6])
     fuel = m0 - np.exp(zf)
@@ -248,4 +270,7 @@ if __name__ == '__main__':
         dev = (fuel - ref) / ref * 100
         print(f"  {name}: {fuel:.1f} kg ({dev:+.1f}%)")
         print(f"  基准 (ECOS SOCP): {ref} kg")
+    else:
+        print("  求解失败: acados SQP 未收敛到可行解")
+        print("  (可能是惩罚法 formulation 的收敛性问题, 请尝试调整 continuation 权重或 solver 参数)")
     print("=" * 60)

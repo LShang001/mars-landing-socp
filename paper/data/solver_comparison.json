@@ -1,0 +1,23 @@
+[
+  {
+    "solver": "CVXPY+ECOS",
+    "type": "SOCP",
+    "fuel_kg": 400.7,
+    "time_ms": 372.22,
+    "status": "optimal"
+  },
+  {
+    "solver": "CVXPY+Clarabel",
+    "type": "SOCP",
+    "fuel_kg": 400.7,
+    "time_ms": 348.06,
+    "status": "optimal"
+  },
+  {
+    "solver": "CasADi+IPOPT",
+    "type": "NLP",
+    "fuel_kg": 400.7,
+    "time_ms": 5835.4,
+    "status": "optimal"
+  }
+]

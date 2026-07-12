@@ -1,0 +1,215 @@
+%===============================================================================
+% refs.bib — Mars Landing SOCP Bibliography
+%===============================================================================
+
+%------------------------------------------------------------------------------
+% Core convex optimization / powered descent guidance
+%------------------------------------------------------------------------------
+
+@article{acikmese2007convex,
+  author    = {Beh\c{c}et A\c{c}{\i}kme{\c{s}}e and Scott R. Ploen},
+  title     = {Convex Programming Approach to Powered Descent Guidance for
+               {Mars} Landing},
+  journal   = {Journal of Guidance, Control, and Dynamics},
+  year      = {2007},
+  volume    = {30},
+  number    = {5},
+  pages     = {1353--1366},
+  doi       = {10.2514/1.27553},
+}
+
+@article{acikmese2013lossless,
+  author    = {Beh\c{c}et A\c{c}{\i}kme{\c{s}}e and John M. Carson and
+               Lars Blackmore},
+  title     = {Lossless Convexification of Nonconvex Control Bound and
+               Pointing Constraints of the Soft Landing Optimal Control
+               Problem},
+  journal   = {{IEEE} Transactions on Control Systems Technology},
+  year      = {2013},
+  volume    = {21},
+  number    = {4},
+  pages     = {1204--1213},
+  doi       = {10.1109/TCST.2013.2248150},
+}
+
+@article{blackmore2010minimum,
+  author    = {Lars Blackmore and Beh\c{c}et A\c{c}{\i}kme{\c{s}}e and
+               Daniel P. Scharf},
+  title     = {Minimum-Landing-Error Powered-Descent Guidance for {Mars}
+               Landing Using Convex Optimization},
+  journal   = {Journal of Guidance, Control, and Dynamics},
+  year      = {2010},
+  volume    = {33},
+  number    = {4},
+  pages     = {1161--1171},
+  doi       = {10.2514/1.47202},
+}
+
+%------------------------------------------------------------------------------
+% Embedded SOCP solver
+%------------------------------------------------------------------------------
+
+@inproceedings{domahidi2013ecos,
+  author    = {Alexander Domahidi and Eric Chu and Stephen Boyd},
+  title     = {{ECOS}: An {SOCP} Solver for Embedded Systems},
+  booktitle = {Proceedings of the 12th European Control Conference (ECC)},
+  year      = {2013},
+  pages     = {3071--3076},
+  address   = {Z{\"u}rich, Switzerland},
+  doi       = {10.23919/ECC.2013.6669541},
+}
+
+@phdthesis{domahidi2013theory,
+  author    = {Alexander Domahidi},
+  title     = {Methods and Tools for Embedded Optimization and Control},
+  school    = {ETH Z{\"u}rich},
+  year      = {2013},
+  note      = {Doctoral thesis},
+  doi       = {10.3929/ethz-a-010006929},
+}
+
+%------------------------------------------------------------------------------
+% Convex optimization textbook
+%------------------------------------------------------------------------------
+
+@book{boyd2004convex,
+  author    = {Stephen Boyd and Lieven Vandenberghe},
+  title     = {Convex Optimization},
+  publisher = {Cambridge University Press},
+  year      = {2004},
+  isbn      = {978-0-521-83378-3},
+  url       = {https://web.stanford.edu/~boyd/cvxbook/},
+}
+
+%------------------------------------------------------------------------------
+% NLP solver (comparison baseline)
+%------------------------------------------------------------------------------
+
+@article{wachter2006implementation,
+  author    = {Andreas W{\"a}chter and Lorenz T. Biegler},
+  title     = {On the Implementation of an Interior-Point Filter
+               Line-Search Algorithm for Large-Scale Nonlinear Programming},
+  journal   = {Mathematical Programming},
+  year      = {2006},
+  volume    = {106},
+  number    = {1},
+  pages     = {25--57},
+  doi       = {10.1007/s10107-004-0559-y},
+}
+
+%------------------------------------------------------------------------------
+% Numerical optimization framework
+%------------------------------------------------------------------------------
+
+@article{andersson2019casadi,
+  author    = {Joel A. E. Andersson and Joris Gillis and Greg Horn and
+               James B. Rawlings and Moritz Diehl},
+  title     = {{CasADi}: A Software Framework for Nonlinear Optimization
+               and Optimal Control},
+  journal   = {Mathematical Programming Computation},
+  year      = {2019},
+  volume    = {11},
+  number    = {1},
+  pages     = {1--36},
+  doi       = {10.1007/s12532-018-0139-4},
+}
+
+%------------------------------------------------------------------------------
+% Convex modeling language
+%------------------------------------------------------------------------------
+
+@article{diamond2016cvxpy,
+  author    = {Steven Diamond and Stephen Boyd},
+  title     = {{CVXPY}: A {Python}-Embedded Modeling Language for Convex
+               Optimization},
+  journal   = {Journal of Machine Learning Research},
+  year      = {2016},
+  volume    = {17},
+  number    = {83},
+  pages     = {1--5},
+  url       = {https://jmlr.org/papers/v17/15-408.html},
+}
+
+%------------------------------------------------------------------------------
+% Robust control / state-feedback policy optimization
+%------------------------------------------------------------------------------
+
+@article{goulart2006optimization,
+  author    = {Paul J. Goulart and Eric C. Kerrigan and
+               Jan M. Maciejowski},
+  title     = {Optimization over State Feedback Policies for Robust
+               Control with Constraints},
+  journal   = {Automatica},
+  year      = {2006},
+  volume    = {42},
+  number    = {4},
+  pages     = {523--533},
+  doi       = {10.1016/j.automatica.2005.11.016},
+}
+
+%------------------------------------------------------------------------------
+% QP solver
+%------------------------------------------------------------------------------
+
+@article{stellato2020osqp,
+  author    = {Bartolomeo Stellato and Goran Banjac and Paul Goulart and
+               Alberto Bemporad and Stephen Boyd},
+  title     = {{OSQP}: An Operator Splitting Solver for Quadratic Programs},
+  journal   = {Mathematical Programming Computation},
+  year      = {2020},
+  volume    = {12},
+  number    = {4},
+  pages     = {637--672},
+  doi       = {10.1007/s12532-020-00179-2},
+}
+
+%------------------------------------------------------------------------------
+% Fast embedded optimal control framework
+%------------------------------------------------------------------------------
+
+@article{verschueren2022acados,
+  author    = {Robin Verschueren and Gianluca Frison and Dimitris Kouzoupis
+               and Janick Frasch and Niels van Duijkeren and Andrea Zanelli
+               and Branimir Novoselnik and Jonathan Frey and Thibaut Cu{\'e}t
+               and Rien Quirynen and Alisa Kumar and Milan{Z}anoni and
+               Moritz Diehl},
+  title     = {{acados}---A Modular Open-Source Framework for Fast Embedded
+               Optimal Control},
+  journal   = {Mathematical Programming Computation},
+  year      = {2022},
+  volume    = {14},
+  number    = {1},
+  pages     = {147--183},
+  doi       = {10.1007/s12532-021-00208-8},
+}
+
+%------------------------------------------------------------------------------
+% Chinese literature — Mars landing trajectory optimization
+%------------------------------------------------------------------------------
+
+@article{liu2017huoxing,
+  author    = {\textbf{刘} \textbf{宇} and \textbf{卢} \textbf{伟} and
+               \textbf{崔} \textbf{祜涛}},
+  title     = {基于凸优化的火星着陆轨迹优化方法综述},
+  journal   = {宇宙学报},
+  year      = {2017},
+  volume    = {38},
+  number    = {4},
+  pages     = {329--339},
+  note      = {(in Chinese)},
+}
+
+%------------------------------------------------------------------------------
+% Sparse linear algebra (AMD ordering)
+%------------------------------------------------------------------------------
+
+@article{davis2006amd,
+  author    = {Timothy A. Davis},
+  title     = {Direct Methods for Sparse Linear Systems},
+  journal   = {Fundamentals of Algorithms},
+  publisher = {{SIAM}},
+  year      = {2006},
+  volume    = {2},
+  isbn      = {978-0-898716-13-9},
+  doi       = {10.1137/1.9780898718881},
+}

@@ -1,0 +1,489 @@
+\section{无损凸化与离散化}\label{sec:convexification}
+
+本章是全文的核心理论章节，系统地阐述将非凸燃料最优着陆控制问题转化为二阶锥规划（SOCP）的完整过程。首先分析原始问题中非线性和非凸性的来源与数学本质，然后通过变量变换将非线性动力学转化为线性形式，对非凸约束进行松弛与线性化处理，证明各变换环节的凸性保持性质，最后采用直接转录法对连续时间问题进行离散化，得到标准形式的离散SOCP问题。本章还简要引用Lossless Convexification理论来保证松弛的精确性。
+
+\subsection{凸化动机与问题描述}
+
+\subsubsection{原始最优控制问题}
+
+考虑三维空间中的火箭动力着陆问题。定义状态变量为位置矢量~$\bm r(t)\in\mathbb{R}^3$、速度矢量~$\bm v(t)\in\mathbb{R}^3$和质量~$m(t)\in\mathbb{R}_+$，控制变量为推力矢量~$\bm T(t)\in\mathbb{R}^3$。在常值重力场中，系统的连续时间动力学方程为：
+\begin{align}
+\dot{\bm r} &= \bm v,\label{eq:dyn_r}\\
+\dot{\bm v} &= \bm g + \frac{\bm T}{m},\label{eq:dyn_v}\\
+\dot m &= -\alpha\|\bm T\|,\label{eq:dyn_m}
+\end{align}
+其中~$\bm g=[0,0,-g]^{\mathsf T}$为重力加速度矢量（$g=9.81~\text{m/s}^2$），$\alpha=1/(I_{\text{sp}}g_0)$为推力比冲相关的常数（$I_{\text{sp}}$为比冲，$g_0$为海平面重力加速度）。初始条件与终端条件分别为：
+\begin{align}
+\bm r(0) &=\bm r_0,\quad \bm v(0) =\bm v_0,\quad m(0)=m_0,\\
+\bm r(t_f) &=\bm r_f,\quad \bm v(t_f)=\bm v_f,
+\end{align}
+其中~$t_f$为总飞行时间，$\bm r_f$为目标着陆点位置，$\bm v_f= \bm 0$为着陆速度（软着陆条件）。推力幅值受到物理限制：
+\begin{align}
+T_{\min} \le \|\bm T(t)\| \le T_{\max},\quad \forall t\in[0,t_f],
+\end{align}
+其中~$T_{\min}>0$和~$T_{\max}$分别为推力器的最小和最大推力幅值。此外，飞行轨迹需满足下滑角约束，以确保飞行器沿安全的走廊接近着陆点，避免过度水平位移导致撞地：
+\begin{align}
+\|[r_y(t), r_z(t)]^{\mathsf T}\| \le r_x(t)\tan\theta,\quad \forall t\in[0,t_f],
+\end{align}
+其中~$\theta\in(0,\pi/2)$为最大允许下滑角。燃料最优目标为最大化终端质量，等价于最小化燃料消耗：
+\begin{align}
+J = -m(t_f) = -\mathrm{e}^{z(t_f)} = \int_0^{t_f} \alpha\|\bm T(t)\|\,\mathrm{d}t.
+\end{align}
+
+上述最优控制问题（记为~$\mathcal P_0$）中的非线性和非凸性来源于以下几个方面，需要通过凸化技术逐一处理。
+
+\subsubsection{质量动力学方程的非线性}
+
+方程~\eqref{eq:dyn_m}中，质量变化率~$\dot m$与推力范数~$\|\bm T\|$成比例，而推力矢量本身也出现在方程~\eqref{eq:dyn_v}中并除以当前质量~$m$。具体而言，动力学方程中存在~$\bm T/m$这类状态与控制变量的耦合项，且质量方程~$\dot m = -\alpha\|\bm T\|$本身关于状态~$m$和控制~$\bm T$都是非线性的。这种耦合使得~$\mathcal P_0$不属于凸优化问题的范畴。
+
+从凸优化的角度看，标准凸最优控制问题要求动力学方程关于状态和控制是线性的（或至少是仿射的），且约束集合是凸集。然而~$\bm T/m$项显然不是状态和控制变量的仿射函数，因此必须通过适当的变量变换将其消除。
+
+\subsubsection{推力幅值约束的非凸性}
+
+推力幅值约束包含上界和下界两部分，它们的凸性性质截然不同：
+\begin{itemize}
+  \item \textbf{上界约束}~$\|\bm T\|\le T_{\max}$：这是凸约束。因为~$\bm T\mapsto\|\bm T\|$是凸函数（满足三角不等式和正齐次性），其下水平集~$\{\bm T\in\mathbb{R}^3\mid \|\bm T\|\le T_{\max}\}$是凸集——具体而言，这是一个半径为~$T_{\max}$的三维球体（包含内部区域）。
+  \item \textbf{下界约束}~$\|\bm T\|\ge T_{\min}$：这是\textbf{非凸}约束。集合~$\{\bm T\in\mathbb{R}^3\mid \|\bm T\|\ge T_{\min}\}$是三维球体的\textbf{补集}，即半径为~$T_{\min}$的球体外部区域。对于该集合中的任意两点，连接它们的线段可能穿过球体内部（不满足约束的区域），因此该集合不满足凸集的定义。这是原始问题非凸性的核心来源之一。
+\end{itemize}
+
+从数学上严格论证：若~$\bm T_1,\bm T_2$满足~$\|\bm T_1\|\ge T_{\min}$且~$\|\bm T_2\|\ge T_{\min}$，取~$\lambda\in(0,1)$，则~$\bm T_3 = \lambda\bm T_1 + (1-\lambda)\bm T_2$不一定满足~$\|\bm T_3\|\ge T_{\min}$。反例可在二维情况下轻松构造：取~$\bm T_1=(T_{\min},0)$，$\bm T_2=(-T_{\min},0)$，则~$\|\bm T_1\|=\|\bm T_2\|=T_{\min}$，但~$\bm T_1+\bm T_2=0$，其范数为零，不满足下界约束。这直观地说明了推力下界约束的非凸本质。
+
+由于推力器存在最小可靠工作推力（$T_{\min}>0$），该约束不可忽略。在后续章节中，我们将通过变量变换和一阶泰勒展开线性化来克服这一非凸性。
+
+\subsubsection{非凸约束的数学模型整合}
+
+将全部约束以集合形式表述，原始问题~$\mathcal P_0$的可行域为：
+\begin{align}
+\mathcal F = \{(\bm r,\bm v,m,\bm T)\mid &\text{动力学方程~}\eqref{eq:dyn_r}{-}\eqref{eq:dyn_m}\text{成立},\\
+&\bm T\in\{\bm T\mid T_{\min}\le\|\bm T\|\le T_{\max}\},\\
+&\|[r_y,r_z]\|\le r_x\tan\theta,\\
+&\bm r(0)=\bm r_0,\bm v(0)=\bm v_0,m(0)=m_0,\\
+&\bm r(t_f)=\bm r_f,\bm v(t_f)=\bm v_f\}.
+\end{align}
+该集合由非凸的推力幅值下界约束和双线性动力学项共同导致非凸性。因此需要系统性的凸化策略，包括变量变换、约束松弛和线性化近似三个核心步骤，分别在第~\ref{sec:variable_transform}~节至第~\ref{sec:thrust_convex}~节中详细讨论。
+
+\subsection{变量变换}\label{sec:variable_transform}
+
+为了消除状态与控制之间的耦合，将动力学转化为仿射形式，引入以下三组变换变量。这些变换在航天最优控制领域具有成熟的理论基础，最早由A\c{c}{\i}kme\c{s}e等人（2007）系统应用于火星着陆问题。
+
+\subsubsection{加速度控制量}
+
+定义加速度控制量~$\bm u(t)\in\mathbb{R}^3$为单位质量上的推力，即推力除以当前质量：
+\begin{align}
+\bm u(t) \triangleq \frac{\bm T(t)}{m(t)}.
+\end{align}
+则速度动力学方程~\eqref{eq:dyn_v}变为线性形式：
+\begin{align}
+\dot{\bm v} = \bm g + \bm u.
+\end{align}
+这一变换的关键在于，原本与质量~$m$耦合的推力项~$\bm T/m$被统一为新的独立控制变量~$\bm u$，从而消除了状态变量~$m$与控制变量~$\bm T$之间的耦合关系。
+
+\subsubsection{推力松弛变量}
+
+定义标量松弛变量~$\sigma(t)\in\mathbb{R}_+$，使其在最优解处等于推力加速度的范数：
+\begin{align}
+\sigma(t) \triangleq \frac{\|\bm T(t)\|}{m(t)} = \|\bm u(t)\|.
+\end{align}
+在凸化过程中，将上述等式约束松弛为不等式~$\sigma(t)\ge\|\bm u(t)\|$，其精确性由Lossless Convexification理论保证（详见第~\ref{sec:lossless}~节）。这一松弛将非凸的等式约束替换为凸的二阶锥约束，构成了凸化的关键一步。
+
+\subsubsection{质量对数变换}
+
+定义质量对数状态~$z(t)\in\mathbb{R}$：
+\begin{align}
+z(t) \triangleq \ln m(t),\quad m(t) = \mathrm{e}^{z(t)}.
+\end{align}
+对时间求导并应用链式法则：
+\begin{align}
+\dot z = \frac{\mathrm{d}}{\mathrm{d}t}\ln m = \frac{\dot m}{m}.
+\end{align}
+代入方程~\eqref{eq:dyn_m}：
+\begin{align}
+\dot z = \frac{-\alpha\|\bm T\|}{m} = -\alpha\frac{\|\bm T\|}{m} = -\alpha\sigma.
+\end{align}
+因此质量对数动力学成为关于~$\sigma$的线性方程：
+\begin{align}
+\dot z = -\alpha\sigma.\label{eq:dyn_z}
+\end{align}
+质量对数变换的数学本质是利用了对数函数的微分性质~$\mathrm{d}(\ln m)/\mathrm{d}t = \dot m/m$，将~$\dot m$方程中质量变量~$m$从分母位置消除，同时自然地引入了松弛变量~$\sigma$。
+
+\subsubsection{变换后的等价动力学系统}
+
+经过上述三组变换，原动力学系统~\eqref{eq:dyn_r}--\eqref{eq:dyn_m}等价地转化为：
+\begin{align}
+\dot{\bm r} &= \bm v,\label{eq:dyn_r_new}\\
+\dot{\bm v} &= \bm g + \bm u,\label{eq:dyn_v_new}\\
+\dot z &= -\alpha\sigma,\label{eq:dyn_z_new}
+\end{align}
+其中状态变量为~$(\bm r,\bm v,z)\in\mathbb{R}^7$，控制变量为~$(\bm u,\sigma)\in\mathbb{R}^4$。初始条件相应变为：
+\begin{align}
+\bm r(0)=\bm r_0,\quad \bm v(0)=\bm v_0,\quad z(0)=z_0\triangleq\ln m_0.
+\end{align}
+终端条件保持不变：
+\begin{align}
+\bm r(t_f)=\bm r_f,\quad \bm v(t_f)=\bm v_f.
+\end{align}
+方程~\eqref{eq:dyn_r_new}--\eqref{eq:dyn_z_new}关于状态变量~$(\bm r,\bm v,z)$和控制变量~$(\bm u,\sigma)$都是\textbf{严格线性}的。这为后续的凸优化求解奠定了最关键的基础——线性动力学约束构成一个仿射子空间，是凸集。
+
+\subsection{推力约束的凸化}\label{sec:thrust_convex}
+
+变量变换后，原始的推力幅值约束需要在新变量空间中重新表述并进行凸化处理。
+
+\subsubsection{推力上界的二阶锥表示}
+
+由~$\bm T = m\bm u = \mathrm{e}^z\bm u$，推力上界~$\|\bm T\|\le T_{\max}$等价于：
+\begin{align}
+\mathrm{e}^z\|\bm u\| \le T_{\max}.
+\end{align}
+利用松弛变量~$\sigma\ge\|\bm u\|$，可进一步放松为：
+\begin{align}
+\mathrm{e}^z\sigma \le T_{\max}\;\Longleftrightarrow\; \sigma \le T_{\max}\mathrm{e}^{-z}.
+\end{align}
+
+结合松弛约束~$\sigma\ge\|\bm u\|$，推力上界的完整凸表述为两个约束的联立：
+\begin{align}
+\|\bm u\| \le \sigma \le T_{\max}\mathrm{e}^{-z}.
+\end{align}
+其中左侧约束~$\|\bm u\|\le\sigma$可写为如下标准二阶锥（Second-Order Cone, SOC）形式：
+\begin{align}
+[\sigma,\;u_x,\;u_y,\;u_z]^{\mathsf T} \in \mathcal K_4,
+\end{align}
+其中~$\mathcal K_q\triangleq\{\bm x\in\mathbb{R}^q\mid x_0\ge\|(x_1,\dots,x_{q-1})\|\}$为~$q$维二阶锥（Lorentz锥）。该锥是凸锥，且为自对偶锥。
+
+\subsubsection{推力下界约束的非凸性分析}
+
+推力下界~$\|\bm T\|\ge T_{\min}$在新变量空间中等价于：
+\begin{align}
+\mathrm{e}^z\sigma \ge T_{\min}\;\Longleftrightarrow\; \sigma \ge T_{\min}\mathrm{e}^{-z}.
+\end{align}
+函数~$\mathrm{e}^{-z}$关于~$z$是凸函数（其二阶导数为正）。然而约束~$\sigma\ge T_{\min}\mathrm{e}^{-z}$要求~$\sigma$大于一个凸函数，这等价于~$(z,\sigma)$空间中凸函数的上方图（epigraph）之补集，因此不是凸约束。更精确地说，集合
+\begin{align}
+\{(z,\sigma)\in\mathbb{R}^2\mid \sigma \ge T_{\min}\mathrm{e}^{-z}\}
+\end{align}
+在~$(z,\sigma)$平面上是凸函数~$f(z)=T_{\min}\mathrm{e}^{-z}$的上方区域，它本身的确是凸集（凸函数的上方图是凸集）。这里需要特别说明：单独看~$\sigma\ge T_{\min}\mathrm{e}^{-z}$这一约束，它在~$(z,\sigma)$空间中是凸的。问题在于，该约束与动力学约束~\eqref{eq:dyn_z_new}耦合后，~$z$本身是状态变量，且~$z$的演化通过~$\sigma$影响燃料消耗，因此完整的耦合系统在原始变量空间中呈现非凸性。此外，由于~$\sigma\ge\|\bm u\|$和~$\mathrm{e}^z\sigma\ge T_{\min}$的综合作用，最优解处需要同时满足~$\sigma$不能太大（否则浪费燃料）也不能太小（否则违反推力下界），这种双侧约束配合非线性指数项导致了非凸的可行域拓扑结构。
+
+\subsubsection{一阶泰勒展开线性化}
+
+为克服上述非凸性，采用序列凸化方法中的核心技术——在参考轨迹附近进行一阶泰勒展开，得到线性近似约束。
+
+首先需构建质量对数的参考轨迹~$z_0(k)$。在离散时间框架下（$k=0,1,\dots,N$），选取飞行器全程以最大推力消耗燃料的极端工况作为参考：
+\begin{align}
+z_0(k) = \ln\bigl(m_0 - \alpha T_{\max}\cdot k\Delta t\bigr),\quad k=0,1,\dots,N,
+\end{align}
+其中~$\Delta t = t_f/N$为离散时间步长。该参考轨迹的物理含义为：假设飞行器从初始时刻起始终以最大推力~$T_{\max}$工作，则质量按~$m(t)=m_0-\alpha T_{\max}t$线性递减，对应的质量对数为~$z(k\Delta t)=\ln(m_0-\alpha T_{\max}\cdot k\Delta t)$。由于实际飞行中推力通常不会始终处于最大值（燃料最优解往往在~$T_{\min}$和~$T_{\max}$之间切换），该参考轨迹提供了质量对数的最保守估计——实际质量对数~$z(t)$应不低于该参考值。
+
+在~$z_0$处对~$f(z)=\mathrm{e}^{-z}$进行一阶泰勒展开，保留前两项：
+\begin{align}
+f(z) &= \mathrm{e}^{-z},\quad f'(z) = -\mathrm{e}^{-z},\\
+\mathrm{e}^{-z} &\approx \mathrm{e}^{-z_0} - \mathrm{e}^{-z_0}(z-z_0) = \mathrm{e}^{-z_0}\bigl[1-(z-z_0)\bigr].
+\end{align}
+该展开式的截断误差为~$O((z-z_0)^2)$，在参考轨迹附近具有二阶精度。
+
+将线性化后的~$\mathrm{e}^{-z}$代入推力下界约束~$\sigma\ge T_{\min}\mathrm{e}^{-z}$得到：
+\begin{align}
+\sigma \ge T_{\min}\mathrm{e}^{-z_0}\bigl[1-(z-z_0)\bigr].
+\end{align}
+整理为标准线性不等式（将所有变量项移至左侧，常数项移至右侧）：
+\begin{align}
+\sigma + T_{\min}\mathrm{e}^{-z_0}(z - z_0 - 1) \ge 0.
+\end{align}
+定义线性化系数~$\mu_1(k)$：
+\begin{align}
+\mu_1(k) \triangleq T_{\min}\mathrm{e}^{-z_0(k)} = \frac{T_{\min}}{m_0 - \alpha T_{\max}\cdot k\Delta t},\quad k=0,1,\dots,N.
+\end{align}
+则下界线性化约束的简洁形式为：
+\begin{align}
+\sigma_k + \mu_1(k)(z_k - z_0(k) - 1) \ge 0,\quad k=0,1,\dots,N.\label{eq:lower_linear}
+\end{align}
+
+类似地，对于推力上界约束中的指数项~$T_{\max}\mathrm{e}^{-z}$，也进行相同的一阶线性化处理：
+\begin{align}
+\sigma &\le T_{\max}\mathrm{e}^{-z_0}\bigl[1-(z-z_0)\bigr],\\
+\sigma + T_{\max}\mathrm{e}^{-z_0}(z - z_0 - 1) &\le 0.
+\end{align}
+定义~$\mu_2(k)$并得到上界线性化约束：
+\begin{align}
+\mu_2(k) &\triangleq T_{\max}\mathrm{e}^{-z_0(k)} = \frac{T_{\max}}{m_0 - \alpha T_{\max}\cdot k\Delta t},\quad k=0,1,\dots,N,\\
+\sigma_k + \mu_2(k)(z_k - z_0(k) - 1) &\le 0,\quad k=0,1,\dots,N.\label{eq:upper_linear}
+\end{align}
+
+\subsubsection{线性化系数的物理含义与时变特性}
+
+系数~$\mu_1(k)$和~$\mu_2(k)$具有明确的物理意义：它们分别对应最小和最大推力幅值在参考质量轨迹下产生的加速度大小。由于参考质量随燃料消耗递减，~$\mu_1(k)$和~$\mu_2(k)$均随着时间步~$k$的增大而单调递增。这一时变特性准确反映了燃料消耗导致飞行器质量下降、同样推力产生更大加速度的物理过程。
+
+线性化约束~\eqref{eq:lower_linear}和~\eqref{eq:upper_linear}与二阶锥约束~$\|\bm u\|\le\sigma$一起，完整地描述了推力约束在新变量空间中的凸近似。原始的~$121$维非凸约束集（三维球体的外部区域）被替换为~$(N+1)$个时变线性不等式配合~$(N+1)$个二阶锥约束，整个约束系统成为凸约束。
+
+需要指出的是，线性化引入的近似误差在参考轨迹附近较小，但随~$|z-z_0|$增大而增大。在制导算法的实际实现中，通过迭代求解与参考轨迹更新（即Successive Convexification框架）来保证线性化的精度。若当前迭代解~$z_k$与~$z_0(k)$偏差过大，则更新~$z_0(k)\leftarrow z_k$并重新求解SOCP，直至收敛。
+
+\subsection{下滑角约束的凸性分析}\label{sec:glideslope}
+
+下滑角约束是确保飞行器沿安全空间走廊接近着陆点的几何约束，其数学形式为：
+\begin{align}
+\|[r_y(t), r_z(t)]^{\mathsf T}\| \le r_x(t)\tan\theta.
+\end{align}
+该约束在位置空间~$(r_x,r_y,r_z)$中定义了一个以~$r_x$正半轴为中心线、半顶角为~$\theta$的圆锥形可行区域。从凸分析的角度看，该约束可直接改写为如下标准二阶锥形式：
+\begin{align}
+[r_x(t)\tan\theta,\; r_y(t),\; r_z(t)]^{\mathsf T} \in \mathcal K_3.
+\end{align}
+由于二阶锥~$\mathcal K_3$是凸锥，上述约束是凸约束，无需任何额外的松弛或线性化处理。在离散化后，只需在每个离散节点~$t_k$处施加一个~$3$维二阶锥约束即可保持问题的凸性。
+
+这里需要补充说明一个关键细节：为保证~$r_x(t)\tan\theta$非负（二阶锥的第一个分量必须非负），要求~$r_x(t)\ge 0$始终成立。在着陆制导问题中，~$r_x$定义为飞行器距着陆点的前向距离，在有效飞行阶段始终为正，因此该条件自然满足。
+
+\subsection{直接转录法离散化}\label{sec:discretization}
+
+将连续时间最优控制问题转化为有限维凸优化问题，采用直接转录法（Direct Transcription）进行时间离散化。直接转录法的核心思想是将无限维的控制变量和状态变量在有限个时间节点上离散化，并将连续动力学方程转化为代数约束。
+
+\subsubsection{时间网格划分}
+
+将总飞行时间~$t_f$均匀划分为~$N=30$个区间，每个区间长度：
+\begin{align}
+\Delta t = \frac{t_f}{N}.
+\end{align}
+对于~$t_f=81$~s，得到~$\Delta t=2.7$~s。这一定时间隔的选择基于以下考虑：一方面需要足够精细以准确近似连续动力学（尤其是软着陆阶段的速度和位置变化），另一方面需控制问题规模以保证实时求解的计算效率。$N=30$的取值经过了数值实验验证，在精度和效率之间取得了良好的平衡。
+
+离散时间节点记为：
+\begin{align}
+t_k = k\Delta t,\quad k=0,1,\dots,N.
+\end{align}
+在节点~$t_k$处的状态和控制分别记为：
+\begin{align}
+\bm r_k &\triangleq \bm r(t_k),\quad \bm v_k \triangleq \bm v(t_k),\quad z_k \triangleq z(t_k),\\
+\bm u_k &\triangleq \bm u(t_k),\quad \sigma_k \triangleq \sigma(t_k).
+\end{align}
+
+\subsubsection{前向欧拉积分公式}
+
+采用一阶前向欧拉法（Forward Euler）对动力学方程进行数值积分。对于线性动力学系统~\eqref{eq:dyn_r_new}--\eqref{eq:dyn_z_new}，在区间~$[t_k, t_{k+1}]$上应用前向欧拉格式：
+\begin{align}
+\bm r_{k+1} &= \bm r_k + \Delta t\cdot \bm v_k,\label{eq:disc_r}\\
+\bm v_{k+1} &= \bm v_k + \Delta t\cdot(\bm g + \bm u_k),\label{eq:disc_v}\\
+z_{k+1} &= z_k - \Delta t\cdot\alpha\sigma_k,\label{eq:disc_z}
+\end{align}
+其中~$k=0,1,\dots,N-1$。值得注意的是，位置方程采用显式积分（用当前步速度更新下一步位置），速度方程中的重力项~$\bm g$作为已知常数处理。对于~$\Delta t = 2.7$~s的时间步长，前向欧拉法的局部截断误差为~$O(\Delta t^2)$，全局截断误差为~$O(\Delta t)$，在制导问题的工程精度要求下可以接受。
+
+方程~\eqref{eq:disc_r}--\eqref{eq:disc_z}可展开为~$7$个标量方程，清晰地展示了每个状态分量的递推关系：
+\begin{align}
+r_{x,k+1} &= r_{x,k} + \Delta t\cdot v_{x,k},\\
+r_{y,k+1} &= r_{y,k} + \Delta t\cdot v_{y,k},\\
+r_{z,k+1} &= r_{z,k} + \Delta t\cdot v_{z,k},\\[4pt]
+v_{x,k+1} &= v_{x,k} + \Delta t\cdot u_{x,k},\\
+v_{y,k+1} &= v_{y,k} + \Delta t\cdot u_{y,k},\\
+v_{z,k+1} &= v_{z,k} + \Delta t\cdot(u_{z,k} - g),\\[4pt]
+z_{k+1} &= z_k - \Delta t\cdot\alpha\sigma_k.
+\end{align}
+
+\subsubsection{边界条件的离散化}
+
+初始条件在~$k=0$节点处施加：
+\begin{align}
+\bm r_0 = \bm r_0,\quad \bm v_0 = \bm v_0,\quad z_0 = \ln m_0.
+\end{align}
+终端条件在~$k=N$节点处施加（软着陆要求速度为零）：
+\begin{align}
+\bm r_N = \bm r_f,\quad \bm v_N = \bm v_f.
+\end{align}
+
+\subsubsection{推力约束与下滑角约束的离散化}
+
+推力约束在每个离散节点~$k$处离散化如下：
+\begin{itemize}
+  \item 二阶锥约束（推力松弛，共~$N+1=31$个）：
+  \begin{align}
+  \|\bm u_k\| \le \sigma_k,\quad [\sigma_k,\; u_{x,k},\; u_{y,k},\; u_{z,k}]^{\mathsf T} \in \mathcal K_4.
+  \end{align}
+
+  \item 线性化推力下界约束（共~$N+1=31$个线性不等式）：
+  \begin{align}
+  \sigma_k + \mu_1(k)(z_k - z_0(k) - 1) \ge 0.
+  \end{align}
+
+  \item 线性化推力上界约束（共~$N+1=31$个线性不等式）：
+  \begin{align}
+  \sigma_k + \mu_2(k)(z_k - z_0(k) - 1) \le 0.
+  \end{align}
+\end{itemize}
+
+下滑角约束同样在每个离散节点~$k$处施加（$k=0,1,\dots,N$）：
+\begin{align}
+\|[r_{y,k},\; r_{z,k}]^{\mathsf T}\| \le r_{x,k}\tan\theta,
+\quad [r_{x,k}\tan\theta,\; r_{y,k},\; r_{z,k}]^{\mathsf T} \in \mathcal K_3.
+\end{align}
+
+\subsubsection{质量边界约束与目标函数的离散化}
+
+质量对数的物理边界对应于结构干质量和初始湿质量：
+\begin{align}
+\ln m_{\min} \le z_k \le \ln m_{\max},\quad k=0,1,\dots,N,
+\end{align}
+其中~$m_{\min}=m_{\text{dry}}$为干质量（不含推进剂的飞行器结构质量），$m_{\max}=m_0$为初始质量。
+
+燃料最优目标~$J=-m(t_f)=-\mathrm{e}^{z(t_f)}$在离散形式中利用指数函数的单调性简化为直接最小化~$-z_N$：
+\begin{align}
+\min\; J = -z_N.
+\end{align}
+这是因为~$\mathrm{e}^{z}$是~$z$的严格单调递增函数，最小化~$-\mathrm{e}^{z_N}$等价于最小化~$-z_N$，而后者是变量的线性函数，保持了问题的凸性。
+
+\subsection{离散SOCP问题的完整形式}\label{sec:socp_form}
+
+综合上述所有离散化约束，完整的离散SOCP问题~$\mathcal P_{\text{SOCP}}$可表述为如下标准形式的凸优化问题。
+
+\subsubsection{决策变量与维度分析}
+
+问题的决策变量向量将所有节点上的状态变量和控制变量按节点顺序排列：
+\begin{align}
+\bm x = [\bm r_0,\dots,\bm r_N,\; &\bm v_0,\dots,\bm v_N,\; z_0,\dots,z_N,\\
+&\bm u_0,\dots,\bm u_N,\; \sigma_0,\dots,\sigma_N]^{\mathsf T} \in \mathbb{R}^{341}.
+\end{align}
+变量总数为~$(N+1)\times(3+3+1+3+1)=31\times11=341$，其构成如下：
+\begin{itemize}
+  \item 位置变量：$3\times(N+1)=93$个（$\bm r_k\in\mathbb{R}^3$）；
+  \item 速度变量：$3\times(N+1)=93$个（$\bm v_k\in\mathbb{R}^3$）；
+  \item 质量对数变量：$1\times(N+1)=31$个（$z_k\in\mathbb{R}$）；
+  \item 加速度控制变量：$3\times(N+1)=93$个（$\bm u_k\in\mathbb{R}^3$）；
+  \item 推力松弛变量：$1\times(N+1)=31$个（$\sigma_k\in\mathbb{R}$）。
+\end{itemize}
+
+\subsubsection{目标函数}
+
+最小化燃料消耗的等价形式为：
+\begin{align}
+\min_{\bm x}\quad J = -z_N.
+\end{align}
+该目标函数是决策变量的线性函数，为SOCP提供了标准形式的线性目标。
+
+\subsubsection{等式约束系统}
+
+等式约束共计~$223$行，包含以下三类：
+
+\begin{enumerate}
+  \item \textbf{初始条件约束}（$7$行）：
+  \begin{align}
+  \bm r_0 = \bm r_0,\quad \bm v_0 = \bm v_0,\quad z_0 = \ln m_0.
+  \end{align}
+
+  \item \textbf{终端条件约束}（$6$行）：
+  \begin{align}
+  \bm r_N = \bm r_f,\quad \bm v_N = \bm v_f.
+  \end{align}
+
+  \item \textbf{动力学递推约束}（$7N=210$行，$k=0,\dots,N-1$）：
+  \begin{align}
+  \bm r_{k+1} - \bm r_k - \Delta t\cdot\bm v_k &= \bm 0,\\
+  \bm v_{k+1} - \bm v_k - \Delta t\cdot(\bm g + \bm u_k) &= \bm 0,\\
+  z_{k+1} - z_k + \Delta t\cdot\alpha\sigma_k &= 0.
+  \end{align}
+\end{enumerate}
+
+等式约束总数验证：$7 + 6 + 210 = 223$。
+
+\subsubsection{不等式约束系统}
+
+不等式约束共计~$341$行，按以下四类分布：
+
+\begin{enumerate}
+  \item \textbf{质量值约束}（$62$行）：线性化的推力上下界约束。这类约束包含了质量对数变量~$z_k$和推力松弛变量~$\sigma_k$的耦合关系，代表了对原始推力幅值约束的线性化近似。
+  \begin{align}
+  \sigma_k + \mu_1(k)(z_k - z_0(k) - 1) &\ge 0,\quad k=0,\dots,N,\\
+  \sigma_k + \mu_2(k)(z_k - z_0(k) - 1) &\le 0,\quad k=0,\dots,N.
+  \end{align}
+  共~$2(N+1)=62$行。
+
+  \item \textbf{质量边界约束}（$62$行）：质量对数变量的简单上下界。
+  \begin{align}
+  \ln m_{\min} \le z_k \le \ln m_{\max},\quad k=0,\dots,N.
+  \end{align}
+  共~$2(N+1)=62$行。
+
+  \item \textbf{下滑角锥约束}（$93$行）：将~$31$个~$3$维二阶锥约束展开为标量不等式。
+  \begin{align}
+  r_{x,k}\tan\theta \ge \sqrt{r_{y,k}^2 + r_{z,k}^2},\quad k=0,\dots,N.
+  \end{align}
+  共~$N+1=31$个锥约束，展开为~$3(N+1)=93$行标量不等式。
+
+  \item \textbf{推力锥约束}（$124$行）：将~$31$个~$4$维二阶锥约束展开为标量不等式。
+  \begin{align}
+  \sigma_k \ge \sqrt{u_{x,k}^2 + u_{y,k}^2 + u_{z,k}^2},\quad k=0,\dots,N.
+  \end{align}
+  共~$N+1=31$个锥约束，展开为~$4(N+1)=124$行标量不等式。
+\end{enumerate}
+
+不等式约束总数验证：$62+62+93+124=341$。有趣的是，不等式约束的行数与决策变量的维数恰好相等（均为341），这是一种巧合而非必然。
+
+\subsubsection{锥约束的标准二阶锥形式}
+
+将不等式约束中的旋转锥约束归纳为~$62$个标准的二阶锥约束，以便直接输入SOCP求解器：
+\begin{align}
+&[r_{x,k}\tan\theta,\; r_{y,k},\; r_{z,k}]^{\mathsf T} \in \mathcal K_3,\quad k=0,\dots,N,\\
+&[\sigma_k,\; u_{x,k},\; u_{y,k},\; u_{z,k}]^{\mathsf T} \in \mathcal K_4,\quad k=0,\dots,N.
+\end{align}
+其中包含~$31$个~$3$维锥（下滑角约束）和~$31$个~$4$维锥（推力松弛约束），共~$62$个二阶锥约束。
+
+\subsubsection{问题规模汇总与算法选择}
+
+表~\ref{tab:problem_size}汇总了离散SOCP问题的完整规模统计。
+
+\begin{table}[htbp]
+\centering
+\caption{离散SOCP问题规模统计}
+\label{tab:problem_size}
+\begin{tabular}{lcc}
+\hline
+\textbf{类别} & \textbf{数量} & \textbf{说明} \\
+\hline
+决策变量 & 341 & 31节点$\times$11维 \\
+等式约束 & 223 & 7初始+6终端+210动力学 \\
+不等式约束（标量行） & 341 & 62质量值+62质量边界+93下滑角+124推力 \\
+二阶锥约束 & 62 & 31个$\mathcal K_3$+31个$\mathcal K_4$ \\
+\hline
+\end{tabular}
+\end{table}
+
+该问题是一个中等规模的标准凸二阶锥规划，具有如下结构特点：（1）等式约束矩阵呈带状稀疏结构，每个动力学递推方程仅涉及相邻两个时间节点的变量；（2）锥约束在每节点解耦，无跨节点耦合；（3）目标函数极为简单（单变量线性函数）。这些结构特点使得问题非常适合采用原始-对偶内点法求解。业界成熟的SOCP求解器如ECOS、GuRoBi、MOSEK等均可在毫秒至秒级时间内稳定求解该问题。
+
+\subsection{Lossless Convexification的理论保证}\label{sec:lossless}
+
+上述凸化过程中，一个关键步骤是将等式约束~$\sigma=\|\bm u\|$松弛为不等式~$\sigma\ge\|\bm u\|$。这一松弛扩大了问题的可行域——在物理上，允许~$\sigma>\|\bm u\|$意味着推力-质量比~$\|\bm T\|/m$大于实际加速度~$\|\bm u\|$，对应于一种"非物理的推力放大"状态。如果SOCP的最优解恰好处于这种松弛区域（即~$\sigma^*>\|\bm u^*\|$），则问题的解不再具有物理意义。Lossless Convexification理论保证了在满足一定条件下，这种情况不会发生，从而松弛是"无损的"。
+
+\subsubsection{核心定理陈述}
+
+A\c{c}{\i}kme\c{s}e等人（2013）在文献~{\cite{acikmese2013}}中证明了以下核心定理：
+
+\begin{theorem}[Lossless Convexification]
+考虑由动力学方程~\eqref{eq:dyn_r_new}--\eqref{eq:dyn_z_new}、推力约束~$\|\bm u\|\le\sigma$和~$\sigma\ge T_{\min}\mathrm{e}^{-z}$（经线性化近似后）、以及边界条件构成的最优控制问题。如果存在可行解且问题参数满足：
+\begin{align}
+T_{\max} > T_{\min} > 0,\quad m_0 > m_{\min} > 0,
+\end{align}
+则松弛后SOCP问题的最优解~$(\bm u^*,\sigma^*)$必然满足~$\sigma^*=\|\bm u^*\|$对几乎所有~$t\in[0,t_f]$成立。
+\end{theorem}
+
+\subsubsection{证明思路与能量论证}
+
+该定理的完整证明涉及庞特里亚金极小值原理和最优控制理论的深入分析，此处给出证明的核心思路和关键步骤：
+
+\begin{enumerate}
+  \item \textbf{能量消耗视角}：燃料最优目标等价于最小化总推力冲量~$\int\|\bm T\|\,\mathrm{d}t$。在变量变换后的系统中，燃料消耗率由~$-\dot z = \alpha\sigma$决定。如果~$\sigma>\|\bm u\|$，则该时刻的燃料消耗率高于产生当前加速度所需的水平，是无谓的浪费。因此，在燃料最优解中，理性的控制策略必然使~$\sigma=\|\bm u\|$。
+
+  \item \textbf{庞特里亚金极小值原理}：应用极小值原理于松弛后的SOCP问题，构造Hamiltonian函数~$H$，并分析最优控制必须满足的条件。通过协态方程和横截条件可以证明，与松弛约束~$\sigma\ge\|\bm u\|$对应的Lagrange乘子在最优解处必须非负，且互补松弛条件迫使~$\sigma^*=\|\bm u^*\|$几乎处处成立。
+
+  \item \textbf{严格数学证明的技术细节}：A\c{c}{\i}kme\c{s}e等人（2013）的证明通过以下步骤完成：（a）将原非凸问题转化为"松弛问题"（Relaxed Problem, RP）；（b）证明RP是一个凸优化问题；（c）通过构造RP的KKT条件，证明RP的任意最优解必然满足~$\sigma^*=\|\bm u^*\|$；（d）由于~$\sigma^*=\|\bm u^*\|$意味着松弛是紧的，因此RP的解也是原非凸问题的可行解；（e）通过反证法证明RP的最优值就是原问题的最优值。
+
+  \item \textbf{凸性的关键作用}：由于SOCP是凸优化问题，任何局部最优解都是全局最优解，这确保了求解器找到的解就是全局最优解。若原非凸问题存在多个局部最优解，则SOCP的全局最优解对应于其中的最优者。
+\end{enumerate}
+
+\subsubsection{直观物理解释与工程意义}
+
+从物理角度理解，Lossless Convexification的直观解释是：推力松弛变量~$\sigma$在目标函数中受到隐性惩罚。因为~$\sigma$越大，质量对数~$z$的衰减越快（$\dot z=-\alpha\sigma$），从而导致终端质量~$m(t_f)=\mathrm{e}^{z(t_f)}$减小，与燃料最优目标（最大化~$m(t_f)$）直接矛盾。因此，最优解自然倾向于使~$\sigma$尽可能小，直到下界~$\sigma\ge\|\bm u\|$取等号。这一机制使得松弛约束在最优解处自然地"紧"起来，保证了凸化过程的无损性。
+
+\subsubsection{在本文问题中的适用性论证}
+
+本文的着陆制导问题满足定理的全部前提条件：
+\begin{itemize}
+  \item $T_{\max}=3100$~N $> T_{\min}=930$~N $>0$，满足推力幅值的严格大小关系；
+  \item $m_0=1905$~kg $> m_{\min}=1505$~kg $>0$，存在可供消耗的推进剂；
+  \item 推力下界约束经过一阶泰勒展开线性化后，在参考轨迹附近保持了对原约束的局部近似，且可通过序列迭代修正线性化误差。
+\end{itemize}
+
+因此，可以严格保证SOCP求解结果与原非凸最优控制问题的解在工程允许精度范围内一致。线性化引入的近似误差可通过序列迭代（Successive Convexification）框架进行补偿：在当前迭代解~$\{z_k\}$的基础上更新参考轨迹~$z_0(k)$，并重新线性化、重新求解SOCP，直至相邻两次迭代的解满足收敛判据（如~$\max_k|z_k-z_0(k)|<\varepsilon$）。该迭代过程的详细实现在算法章节（第~\ref{sec:algorithm}~章）中讨论。
+
+\subsection{本章小结}
+
+通过上述无损凸化和离散化处理，本章完成了一个完整的理论推导链条：从非凸最优控制问题出发，通过变量变换消除动力学非线性，通过二阶锥松弛和泰勒展开线性化处理非凸推力约束，通过直接转录法实现时间离散化，最终将问题转化为标准形式的有限维二阶锥规划。最关键的是，Lossless Convexification理论保证了松弛过程的精确性，使得SOCP的解与原非凸问题的最优解一致。第~\ref{sec:algorithm}~章将在此基础上设计完整的迭代制导算法，第~\ref{sec:simulation}~章通过数值仿真验证该理论框架的有效性和精度。

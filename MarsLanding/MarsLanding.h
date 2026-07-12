@@ -45,26 +45,26 @@
 
 /* ---- 矩阵非零元统计（用于预分配内存）----------------------------------- */
 
-#define nnz_bound  (NX + NX - 1)     /* 边界条件: 13 非零元             */
-#define nnz_dyn    (10 + 7 + 7)      /* 每步动力学: 24 非零元           */
+#define NNZ_BOUND  (NX + NX - 1)     /* 边界条件: 13 非零元             */
+#define NNZ_DYN    (10 + 7 + 7)      /* 每步动力学: 24 非零元           */
                                      /*   位置更新: 4+4+4 = 12           */
                                      /*   速度更新: 3+3+3 = 9            */
                                      /*   质量更新: 3                   */
 
-#define nnz_Tnorm  (2 * 2)           /* 质量值不等式: 每步 4            */
-#define nnz_mass   (2 * 1)           /* 质量上下界: 每步 2              */
-#define nnz_Trelax  4                /* 推力松弛(SOC): 每步 4           */
-#define nnz_slope   3                /* 下滑角(SOC): 每步 3             */
+#define NNZ_TNORM  (2 * 2)           /* 质量值不等式: 每步 4            */
+#define NNZ_MASS   (2 * 1)           /* 质量上下界: 每步 2              */
+#define NNZ_TRELAX  4                /* 推力松弛(SOC): 每步 4           */
+#define NNZ_SLOPE   3                /* 下滑角(SOC): 每步 3             */
 
 /* ---- 优化问题维度（由上述参数推导）-------------------------------------- */
 
 #define N_VAR  ((NX + NU) * (N + 1))             /* 341: 优化变量总数     */
-#define P_EQ   ((NX + NX - 1) + NX * N)           /* 217: 等式约束数       */
+#define P_EQ   ((NX + NX - 1) + NX * N)           /* 223: 等式约束数       */
                                                 /*   边界条件 13         */
                                                 /*   动力学约束 7×30=210 */
 #define L_G    ((N + 1) * (2 + 2))                /* 124: 线性不等式约束数 */
-                                                /*   质量值上下界 2×31   */
-                                                /*   质量上下界 2×31     */
+                                                /*   质量值不等式（线性化推力边界）2×31   */
+                                                /*   质量上下界（干/湿重边界）2×31         */
 #define NCONES ((N + 1) * (1 + 1))                /* 62: 二阶锥总数        */
                                                 /*   下滑角锥 31         */
                                                 /*   推力松弛锥 31       */
@@ -73,8 +73,8 @@
                                                 /*   SOC1(推力,q=4) 124  */
                                                 /*   SOC2(下滑,q=3) 93   */
 
-#define NNZA  (nnz_bound + nnz_dyn * N)           /*  733: A矩阵非零元    */
-#define NNZG  ((nnz_Tnorm + nnz_mass + nnz_Trelax + nnz_slope) * (N + 1))
+#define NNZA  (NNZ_BOUND + NNZ_DYN * N)           /*  733: A矩阵非零元    */
+#define NNZG  ((NNZ_TNORM + NNZ_MASS + NNZ_TRELAX + NNZ_SLOPE) * (N + 1))
                                                  /*  403: G矩阵非零元    */
 
 /* ---- 二阶锥维度数组 q[ncones] ------------------------------------------- */
@@ -84,7 +84,7 @@
 /* ========================== 函数声明 ===================================== */
 
 /**
- * CRM2CCM — 稀疏矩阵 CRS → CCS 格式转换
+ * crm_to_ccm — 稀疏矩阵 CRS → CCS 格式转换
  *
  * 将行压缩存储 (Compressed Row Storage) 转为列压缩存储 (Compressed Column
  * Storage)。ECOS 求解器要求输入矩阵为 CCS 格式。
@@ -100,7 +100,7 @@
  * @param nnz      非零元素总数
  * @param w        临时工作数组 (大小 n)
  */
-void CRM2CCM(idxint CRMjc[], idxint CRMir[], pfloat CRMpr[],
+void crm_to_ccm(idxint CRMjc[], idxint CRMir[], pfloat CRMpr[],
              idxint CCMjc[], idxint CCMir[], pfloat CCMpr[],
              idxint m, idxint n, idxint nnz, idxint w[]);
 

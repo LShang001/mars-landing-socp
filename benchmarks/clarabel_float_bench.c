@@ -130,12 +130,18 @@ int main(void){
     clock_t t0=clock();
     for(int i=0;i<NRUNS;i++) clarabel_DefaultSolver_f64_solve(s_d);
     double ms_d=1000.0*(clock()-t0)/CLOCKS_PER_SEC;
-    ClarabelDefaultSolution_f64 sol_d=clarabel_DefaultSolver_f64_solution(s_d);
-    double fuel_d=m0v-exp(((double*)sol_d.x)[N*(NX+NU)+6]);
-
-    printf("  double (f64):\n");
-    printf("    %d runs: %.0f ms (%.2f ms/solve)\n",NRUNS,ms_d,ms_d/NRUNS);
-    printf("    燃料: %.1f kg\n\n",fuel_d);
+    ClarabelDefaultInfo_f64 info_d=clarabel_DefaultSolver_f64_info(s_d);
+    int f64_ok=(info_d.status==ClarabelSolved);
+    double fuel_d=0;
+    if (f64_ok) {
+        ClarabelDefaultSolution_f64 sol_d=clarabel_DefaultSolver_f64_solution(s_d);
+        fuel_d=m0v-exp(((double*)sol_d.x)[N*(NX+NU)+6]);
+        printf("  double (f64):\n");
+        printf("    %d runs: %.0f ms (%.2f ms/solve)\n",NRUNS,ms_d,ms_d/NRUNS);
+        printf("    燃料: %.1f kg\n\n",fuel_d);
+    } else {
+        printf("  ERROR: f64 求解未达最优 (status=%d), 跳过结果\n",(int)info_d.status);
+    }
 
     /* 单精度 */
     float *Ap_f=malloc((NNZA+NNZG)*sizeof(float));
@@ -165,14 +171,25 @@ int main(void){
     clock_t t1=clock();
     for(int i=0;i<NRUNS;i++) clarabel_DefaultSolver_f32_solve(s_f);
     double ms_f=1000.0*(clock()-t1)/CLOCKS_PER_SEC;
-    ClarabelDefaultSolution_f32 sol_f=clarabel_DefaultSolver_f32_solution(s_f);
-    double fuel_f=m0v-exp(((float*)sol_f.x)[N*(NX+NU)+6]);
-
-    printf("  float  (f32):\n");
-    printf("    %d runs: %.0f ms (%.2f ms/solve)\n",NRUNS,ms_f,ms_f/NRUNS);
-    printf("    燃料: %.1f kg  (Δ=%.1f kg)\n\n",fuel_f,fuel_f-fuel_d);
-    printf("  Speedup: %.1fx\n",ms_d/ms_f);
-    printf("  精度损失: %.1f kg (%.2f%%)\n",fabs(fuel_f-fuel_d),fabs(fuel_f-fuel_d)/fuel_d*100);
+    ClarabelDefaultInfo_f32 info_f=clarabel_DefaultSolver_f32_info(s_f);
+    int f32_ok=(info_f.status==ClarabelSolved);
+    double fuel_f=0;
+    if (f32_ok) {
+        ClarabelDefaultSolution_f32 sol_f=clarabel_DefaultSolver_f32_solution(s_f);
+        fuel_f=m0v-exp(((float*)sol_f.x)[N*(NX+NU)+6]);
+        printf("  float  (f32):\n");
+        printf("    %d runs: %.0f ms (%.2f ms/solve)\n",NRUNS,ms_f,ms_f/NRUNS);
+        if (f64_ok)
+            printf("    燃料: %.1f kg  (Δ=%.1f kg)\n\n",fuel_f,fuel_f-fuel_d);
+        else
+            printf("    燃料: %.1f kg\n\n",fuel_f);
+    } else {
+        printf("  ERROR: f32 求解未达最优 (status=%d), 跳过结果\n",(int)info_f.status);
+    }
+    if (f64_ok && f32_ok) {
+        printf("  Speedup: %.1fx\n",ms_d/ms_f);
+        printf("  精度损失: %.1f kg (%.2f%%)\n",fabs(fuel_f-fuel_d),fabs(fuel_f-fuel_d)/fuel_d*100);
+    }
     printf("========================================================\n");
 
     clarabel_DefaultSolver_f64_free(s_d);clarabel_DefaultSolver_f32_free(s_f);

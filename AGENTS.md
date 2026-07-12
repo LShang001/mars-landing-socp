@@ -132,6 +132,27 @@ cd ../build && make -j4       # 重新编译
 11. **acados 惩罚法优于硬约束**: 硬约束 `con_h_expr` 在 u≈0 处 Hessian 病态导致 QP 崩溃。将 SOC 约束转为 softplus 惩罚项加入 LS 代价, 配合多轮 continuation (w=10→1e5), 可精确匹配 ECOS 400.7 kg。详见 mars_acados.py。
 12. **单精度 (float) 不可用于此问题**: Clarabel f32 虽然快 50x (0.12 ms vs 6 ms), 但燃料误差 375%。根因: 问题动态范围大 (位置 1500, exp(-z)~0.0005), float 条件数不足。嵌入式部署必须用 double。详见 benchmarks/clarabel_float_bench.c。
 
+### 陷阱 13：单精度(float)对该问题产生 375% 燃料误差
+Clarabel f32 基准实测燃料 1880+ kg，误差 375%。根因：动态范围 10^6.6（位置 ~2000 m vs exp(-z) ~0.0005），float 仅 7 位有效数字，不足以在 KKT 条件数 10^8 下可靠求解。ECOS glblopts.h:54 声明 pfloat 必须为 double。建议在 CMakeLists.txt 或 main 入口加静态断言。
+
+### 陷阱 14：ln(m) 质量对数变换引入约 1500 倍误差放大
+由于 dm/dz = m ≈ 1505-1905 kg，z_N 的 1e-7 误差转换为燃料质量时放大 ~1500 倍 → 1.5e-4 kg。燃料 400.7 kg 对应 Δz = 0.236，z 误差 0.001 即导致约 1.5 kg 燃料偏差。调试线索：交叉验证中发现 ~0.1 kg 量级偏差时，回溯 z_N 误差仅约 7e-5。
+
+### 陷阱 15：C 手写版与 CasADi 代码生成版的 A 矩阵符号约定相反
+C 版写为 A*x=b（如 rx_k + dt*vx_k + ... = +½g·dt²），CasADi 版提取 A=jacobian(eq,x) b=-eq(0)，得到符号相反的矩阵（如 -rx_k - dt*vx_k - ... = -½g·dt²）。两者物理等价但矩阵数值符号相反。进行逐元素对比时注意此约定差异。
+
+### 陷阱 16：mars_model.py 与 mars_codegen.py 的线性约束行序不同
+mars_model.py 用与 C 手写版一致的分组行序（先全部质量值不等式 62 行，再全部质量上下界 62 行）。mars_codegen.py 用按 k 交错的行序（每个 k 步内交替排列）。两种行序数学等价但 G 矩阵行号完全不同。混用两份文件输出会引入隐蔽 Bug。建议统一为分组行序。
+
+### 陷阱 17：AVX/FMA 编译选项对稀疏 LDL 分解无效
+ECOS_USE_AVX=1 在源码中无任何 _mm256_* intrinsic。实测标量版比 AVX 版快 2.4%。根因：稀疏 LDL 分解是内存带宽瓶颈（CCS 格式 irregular gather/scatter），SIMD 无法加速。不应再尝试对稀疏求解器加 SIMD 编译选项——如需加速应改写算法而非加编译器 flag。
+
+### 陷阱 18：acados lbu 不能限制 u 分量符号
+acados 的 lbu=[0,0,0,0] 强制 ux,uy,uz ≥ 0，但原始 ECOS 问题中 u 只有锥约束 ‖u‖ ≤ σ 无符号限制。uz 必须为负才能让 vz 从 +100 减速到 0。限制 uz≥0 导致问题不可行。只应限制 sigma ≥ 0。
+
+### 陷阱 19：acados continuation warm-start 必须在循环内部更新 x_guess
+x_guess/u_guess 的更新必须在 for w in weights 循环内部执行，否则三个权重都从相同初始猜测起步。
+
 ---
 
 ## 七、acados 安装 (实验性)

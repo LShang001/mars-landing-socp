@@ -1,0 +1,411 @@
+\section{问题描述与建模}
+
+\subsection{坐标系定义}
+
+本文采用火星固连坐标系（Mars-Centered, Mars-Fixed, MCMF）描述着陆器的运动状态。坐标系原点位于火星质心，$x$轴沿火星径向方向指向上方（远离火星表面），$y$轴和$z$轴位于水平面内，构成右手直角坐标系。在该坐标系下，着陆器的位置向量记为$\bm{r} = [r_x, r_y, r_z]^{\top}$，其中$r_x$表示着陆器距火星参考球面的径向高度，$r_y$和$r_z$表示水平方向的位置分量。速度向量记为$\bm{v} = [v_x, v_y, v_z]^{\top}$，分别对应各轴方向的速度分量。
+
+在动力下降段，着陆器距离火星表面仅数千米，相对于火星半径的尺度而言可近似认为重力加速度为常值。火星表面平均重力加速度为$g = 3.7114\;\mathrm{m/s^2}$，方向沿$x$轴负方向（指向火星表面）。由于动力下降段时间短（$t_f = 81\;\mathrm{s}$）、运动范围小，忽略火星自转效应和科里奥利力的影响，固连坐标系可视为惯性系。
+
+\subsection{物理参数}
+
+本文所研究的火星动力下降段着陆器物理参数如表\ref{tab:params}所示。
+
+\begin{table}[htbp]
+    \centering
+    \caption{火星动力下降段物理参数}
+    \label{tab:params}
+    \begin{tabular}{cll}
+        \toprule
+        符号 & 物理意义 & 数值 \\
+        \midrule
+        $g$          & 火星表面重力加速度                      & $3.7114\;\mathrm{m/s^2}$ \\
+        $I_{\mathrm{sp}}$ & 发动机比冲                      & $225\;\mathrm{s}$ \\
+        $m_0$        & 初始总质量                              & $1905\;\mathrm{kg}$ \\
+        $m_{\mathrm{dry}}$ & 干重（结构质量）                  & $1505\;\mathrm{kg}$ \\
+        $T_{\max}$   & 单台发动机最大推力                        & $3100\;\mathrm{N}$ \\
+        $T_2$        & 姿控可用最大推力 ($0.8\,T_{\max}$)       & $2480\;\mathrm{N}$ \\
+        $n_T$        & 发动机台数                              & $6$ \\
+        $\phi$       & 发动机安装倾角                            & $27^\circ$ \\
+        $\theta$     & 最大下滑角                              & $86^\circ$ \\
+        $N$          & 离散控制段数                            & $30$ \\
+        $t_f$        & 给定着陆时间                            & $81\;\mathrm{s}$ \\
+        $\bm{r}_0$   & 初始位置 $[r_{x0}, r_{y0}, r_{z0}]^{\top}$ & $[1500, 0, 2000]^{\top}\;\mathrm{m}$ \\
+        $\bm{v}_0$   & 初始速度 $[v_{x0}, v_{y0}, v_{z0}]^{\top}$ & $[-75, 0, 100]^{\top}\;\mathrm{m/s}$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+其中，$g$为火星表面重力加速度，取值$3.7114\;\mathrm{m/s^2}$约为地球重力加速度的$0.378$倍。$I_{\mathrm{sp}}$为发动机比冲，表征推进系统的燃料效率，取值$225\;\mathrm{s}$对应于典型液体燃料发动机的性能水平。$m_0$为初始总质量，$m_{\mathrm{dry}}$为干重（结构质量），二者之差$\Delta m = 400\;\mathrm{kg}$即为可用燃料质量。$T_{\max}$为单台发动机最大推力，而$T_2 = 0.8\,T_{\max}$为扣除$20\%$姿控余量后可用于动力下降的推力上界——这$20\%$的余量确保姿态控制系统在动力下降过程中有足够的力矩裕度。$n_T = 6$为发动机台数，均布于着陆器底部。$\phi = 27^\circ$为发动机喷管轴线与着陆器中心轴线之间的安装倾角，该倾斜布局使得发动机在提供轴向推力的同时具备水平方向推力分量，从而实现对水平速度的直接控制。$\theta = 86^\circ$为最大允许下滑角，保证着陆轨迹近乎垂直，防止着陆器因水平速度过大而倾覆。$N = 30$为用于数值求解的离散控制段数，$t_f = 81\;\mathrm{s}$为给定的着陆时间。
+
+初始位置$\bm{r}_0 = [1500, 0, 2000]^{\top}\;\mathrm{m}$意味着着陆器在动力下降开始时位于目标着陆点正上方$1500\;\mathrm{m}$，同时在$z$方向有$2000\;\mathrm{m}$的水平偏移。初始速度$\bm{v}_0 = [-75, 0, 100]^{\top}\;\mathrm{m/s}$表明着陆器已有$75\;\mathrm{m/s}$的竖直向下速度分量和$100\;\mathrm{m/s}$的$z$方向水平速度。
+
+\subsection{三自由度动力学方程}
+
+在火星固连坐标系下，着陆器被视为变质量质点，其三自由度动力学方程由牛顿第二定律和变质量系统的质量守恒律推导得到。连续时间动力学方程组为
+\begin{align}
+    \dot{\bm{r}} &= \bm{v}, \label{eq:dr} \\
+    \dot{\bm{v}} &= \bm{g} + \frac{\bm{T}_{\mathrm{total}}}{m}, \label{eq:dv} \\
+    \dot{m}      &= -\alpha \left\|\bm{T}_{\mathrm{total}}\right\|, \label{eq:dm}
+\end{align}
+其中$\bm{T}_{\mathrm{total}} = [T_x, T_y, T_z]^{\top}$为$n_T$台发动机产生的总推力向量，$\bm{g} = [-g, 0, 0]^{\top}$为重力加速度向量，$m$为着陆器当前时刻的瞬时质量。
+
+式\eqref{eq:dr}是位置与速度之间的运动学关系，式\eqref{eq:dv}是牛顿第二定律的矢量形式——着陆器加速度由重力项和控制加速度项（推力除以质量）两部分构成。式\eqref{eq:dm}为质量消耗方程，描述了推进剂消耗速率与推力幅值之间的正比关系。
+
+系数$\alpha$的物理含义为单位推力所对应的质量消耗率。根据火箭发动机的比冲定义，推力大小$\|\bm{T}_{\mathrm{total}}\|$与质量流率$\dot{m}$之间满足
+\begin{align}
+    \|\bm{T}_{\mathrm{total}}\| = I_{\mathrm{sp}}\,g_0\,(-\dot{m})\cos\phi,
+\end{align}
+其中$g_0 = 9.80665\;\mathrm{m/s^2}$为地球标准重力加速度。需要特别说明的是，式中$\cos\phi$修正项之所以出现，是因为$\dot{m}$对应的是发动机推进剂的总消耗率，而推力沿发动机轴线的分量需要乘以$\cos\phi$才能投影到$x$方向（同时沿$x$方向产生制动减速的推力分量）。然而，式\eqref{eq:dm}中$\alpha$作用于总推力幅值$\|\bm{T}_{\mathrm{total}}\|$，推导时需考虑总推力与轴向推力的区别。从推进系统能量角度推导，推进剂消耗率由所有发动机的总功率决定，与安装倾角无关，因此严格的质量消耗率为
+\begin{align}
+    \dot{m} = -\frac{\|\bm{T}_{\mathrm{total}}\|}{I_{\mathrm{sp}}\,g_0}.
+\end{align}
+
+对比式\eqref{eq:dm}可得$\alpha$的真实定义。在安装倾角$\phi$的配置下，若想要以等效推力矢量模型描述动力学，常用的处理方式有两种。第一种方式是将安装倾角的影响吸收进比冲参数：
+\begin{align}
+    \alpha = \frac{1}{I_{\mathrm{sp}}\,g_0}, \label{eq:alpha_true}
+\end{align}
+
+此时式\eqref{eq:dm}中的推力须理解为各发动机轴向推力的等效合力。为与此前文献中的约定保持一致，本文采用另一种等价形式：
+\begin{align}
+    \alpha = \frac{1}{I_{\mathrm{sp}}\,g_0\cos\phi}. \label{eq:alpha}
+\end{align}
+
+将式\eqref{eq:dv}按各轴分量展开，得到三个标量微分方程：
+\begin{align}
+    \dot{v}_x &= -g + \frac{T_x}{m}, \label{eq:dvx} \\
+    \dot{v}_y &= \frac{T_y}{m}, \label{eq:dvy} \\
+    \dot{v}_z &= \frac{T_z}{m}. \label{eq:dvz}
+\end{align}
+
+式\eqref{eq:dvx}中重力加速度$g$带负号，代表重力指向火星表面（即$x$轴负方向）。着陆器要想减速并最终悬浮于目标点，必须依靠推力分量$T_x$提供足够大的向上的加速度，以抵消重力并产生减速效果。当$T_x > mg$时，着陆器在$x$方向获得向上的净加速度，$|v_x|$逐渐减小至零。$y$和$z$方向无重力项，水平面的运动加速度完全由推力分量决定。
+
+从式\eqref{eq:dv}对时间积分，可以得到速度增量的近似表达式：
+\begin{align}
+    \bm{v}(t) - \bm{v}_0 = \bm{g}\,t + \int_0^{t} \frac{\bm{T}_{\mathrm{total}}(\tau)}{m(\tau)}\,\mathrm{d}\tau.
+\end{align}
+
+可见着陆器在动力下降过程中需要克服重力作用，同时通过调节推力矢量补偿初始速度偏差，最终达到终端零速度的条件。
+
+\subsection{控制量与推力矢量关系}
+
+\subsubsection{发动机配置}
+
+着陆器底部均布安装$n_T = 6$台液体火箭发动机，每台发动机的推力大小可独立调节，且具备深度节流能力。各发动机的安装轴线与着陆器中心轴线（$x$轴）之间具有相同的安装倾角$\phi = 27^\circ$，即每台发动机的推力方向均偏离$x$轴一个固定角度$\phi$，且在水平面内均匀分布，相邻两台发动机之间夹角为$60^\circ$。
+
+设第$i$台发动机的推力大小为$T_i\;(i = 1, 2, \ldots, n_T)$，其推力向量在火星固连坐标系中的分解为
+\begin{align}
+    \bm{T}_i = T_i
+    \begin{bmatrix}
+        \cos\phi \\
+        \sin\phi\,\cos\psi_i \\
+        \sin\phi\,\sin\psi_i
+    \end{bmatrix},
+\end{align}
+其中$\psi_i = (i-1)\times 60^\circ$为第$i$台发动机轴线在水平面内投影的方位角。各台发动机的方位角具体为
+\begin{align}
+    \psi_i \in \{0^\circ,\; 60^\circ,\; 120^\circ,\; 180^\circ,\; 240^\circ,\; 300^\circ\}.
+\end{align}
+
+$n_T$台发动机的总推力向量为各台推力向量之和：
+\begin{align}
+    \bm{T}_{\mathrm{total}} = \sum_{i=1}^{n_T} \bm{T}_i =
+    \begin{bmatrix}
+        \displaystyle\sum_{i=1}^{n_T} T_i\cos\phi \\[6pt]
+        \displaystyle\sum_{i=1}^{n_T} T_i\sin\phi\,\cos\psi_i \\[6pt]
+        \displaystyle\sum_{i=1}^{n_T} T_i\sin\phi\,\sin\psi_i
+    \end{bmatrix}. \label{eq:Ttotal}
+\end{align}
+
+\subsubsection{加速度控制量}
+
+为简化控制问题的表述，引入加速度控制量$\bm{u} = [u_x, u_y, u_z]^{\top}$，其定义为总推力向量除以当前质量：
+\begin{align}
+    \bm{u} = \frac{\bm{T}_{\mathrm{total}}}{m}. \label{eq:u_def}
+\end{align}
+
+将式\eqref{eq:Ttotal}代入式\eqref{eq:u_def}，可得加速度控制量的各轴分量表达式为
+\begin{align}
+    u_x &= \frac{\cos\phi}{m}\sum_{i=1}^{n_T} T_i, \\
+    u_y &= \frac{\sin\phi}{m}\sum_{i=1}^{n_T} T_i\cos\psi_i, \\
+    u_z &= \frac{\sin\phi}{m}\sum_{i=1}^{n_T} T_i\sin\psi_i.
+\end{align}
+
+当6台发动机推力不等时，总推力矢量的方向可在一定范围内连续变化。令$\bm{e}_i = [\cos\phi,\;\sin\phi\cos\psi_i,\;\sin\phi\sin\psi_i]^{\top}$，则总推力矢量可控空间为
+\begin{align}
+    \bm{T}_{\mathrm{total}} \in \left\{ \sum_{i=1}^{n_T} T_i\,\bm{e}_i \;:\; T_i \in [T_{\min},\, T_{\max}] \right\}.
+\end{align}
+
+由于$n_T = 6$且$\bm{e}_i$在三维空间中张成了多面锥，总推力矢量的可达集是一个以$x$轴为对称轴的多边形锥体。对于本文所考虑的燃料最优轨迹规划问题，进一步假设各发动机同步调节，即每台发动机的推力大小相等：
+\begin{align}
+    T_1 = T_2 = \cdots = T_{n_T} = T.
+\end{align}
+
+此时总推力矢量方向由几何配置唯一确定，各轴分量简化为
+\begin{align}
+    T_x &= n_T\,T\cos\phi, \\
+    T_y &= n_T\,T\sin\phi\cdot\frac{1}{6}\sum_{i=1}^{6}\cos\psi_i = 0, \\
+    T_z &= n_T\,T\sin\phi\cdot\frac{1}{6}\sum_{i=1}^{6}\sin\psi_i = 0.
+\end{align}
+
+由于余弦和正弦在完整圆周上的对称性，$\sum\cos\psi_i = \sum\sin\psi_i = 0$，均布推力时水平分量互相抵消，总推力方向仅沿$x$轴方向。但在非同步调节的一般情况下，通过调制各台发动机的推力差异，可以在水平面内产生净推力分量，从而实现水平方向的速度控制。本文采用等效总推力向量$\bm{T} = [T_x, T_y, T_z]^{\top}$作为实际设计变量，直接表示总推力在各轴上的分量，令加速度控制量$\bm{u}$为
+\begin{align}
+    u_x = \frac{T_x}{m},\qquad
+    u_y = \frac{T_y}{m},\qquad
+    u_z = \frac{T_z}{m}. \label{eq:u_comp}
+\end{align}
+
+将式\eqref{eq:u_def}与\eqref{eq:alpha}代入质量消耗方程\eqref{eq:dm}，得到以加速度控制量表示的质量变化率：
+\begin{align}
+    \dot{m} = -\alpha\,m\|\bm{u}\|. \label{eq:dm_u}
+\end{align}
+
+至此，以$\bm{r}$、$\bm{v}$、$m$为状态变量，以$\bm{u}$为控制变量的连续时间动力学方程组综合如下：
+\begin{align}
+    \dot{\bm{r}} &= \bm{v}, \label{eq:sys1} \\
+    \dot{\bm{v}} &= \bm{g} + \bm{u}, \label{eq:sys2} \\
+    \dot{m}      &= -\alpha\,m\|\bm{u}\|. \label{eq:sys3}
+\end{align}
+
+式\eqref{eq:sys3}是微分方程中唯一的非线性项，其右端包含了状态$m$与控制量$\bm{u}$的耦合乘积$\|\bm{u}\|$，是该最优控制问题非线性的主要来源，也是后续松弛和凸化处理的关键对象。
+
+\subsection{约束条件}
+
+\subsubsection{推力幅值约束}
+
+每台液体火箭发动机的推力大小受到物理限制，只能在最小推力$T_{\min}$和最大推力$T_{\max}$之间连续调节：
+\begin{align}
+    T_{\min} \leq T_i \leq T_{\max}, \quad i = 1, 2, \ldots, n_T. \label{eq:Ti_bound}
+\end{align}
+
+需要说明的是，对于液体火箭发动机，$T_{\min}$通常不为零，而是受到燃烧室稳定工作条件的限制（典型值为$30\%$额定推力）。但在动力下降段的数学规划中，通常不对$T_{\min}$施加严格的下界约束，而是依靠最优解的自然特性保证发动机工作在合理区间。
+
+考虑工程实际，需要预留$20\%$的推力用于姿态控制系统，因此实际可用于动力下降的可用最大推力为
+\begin{align}
+    T_2 = 0.8\,T_{\max} = 2480\;\mathrm{N}.
+\end{align}
+
+由$n_T$台发动机的总推力幅值$\|\bm{T}_{\mathrm{total}}\|$满足的约束为
+\begin{align}
+    0 \leq \|\bm{T}_{\mathrm{total}}\| \leq n_T\,T_2. \label{eq:T_norm_bound}
+\end{align}
+
+将式\eqref{eq:u_def}代入上式，得到关于加速度控制量$\bm{u}$的约束：
+\begin{align}
+    0 \leq \|\bm{u}\| \leq \frac{n_T\,T_2}{m}. \label{eq:u_bound}
+\end{align}
+
+注意到该约束的上界与状态变量$m$有关，属于状态相关的控制约束（state-dependent control constraint）。随着推进剂的消耗，$m$逐渐减小，约束上界$\frac{n_T T_2}{m}$逐渐增大，意味着后期可用加速度更大。
+
+\subsubsection{下滑角约束}
+
+为保证着陆器以近乎垂直的姿态安全着陆，避免因水平速度过大导致着陆时倾覆，需对飞行轨迹的下滑角施加约束。下滑角定义为速度向量与水平面之间的夹角$\gamma$，满足
+\begin{align}
+    \tan\gamma = \frac{-v_x}{\sqrt{v_y^2 + v_z^2}}.
+\end{align}
+
+该约束等价于要求速度方向始终保持在以$x$轴为对称轴的一个倒锥体内。在仅给定初始和终端位置的情况下，更常用的是路径约束形式——位置空间中的锥形约束，以确保着陆器始终保持在安全走廊内：
+\begin{align}
+    \sqrt{r_y^2 + r_z^2} \leq r_x \tan\theta, \label{eq:glideslope}
+\end{align}
+其中$\theta = 86^\circ$为最大允许下滑角，$\tan 86^\circ \approx 14.30$。该约束的几何意义如图\ref{fig:glideslope}所示，它定义了以$x$轴线为中心轴、半顶角为$86^\circ$的倒锥形安全走廊，着陆器的三维位置$[r_x, r_y, r_z]$必须在锥体内部。
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[scale=0.6]
+        \draw[->] (0,0) -- (5,0) node[right]{$r_y$};
+        \draw[->] (0,0) -- (0,5) node[above]{$r_x$};
+        \draw[->] (0,0) -- (-2,-1) node[below]{$r_z$};
+        \draw[dashed] (0,0) -- (4, 4*tan{86});
+        \draw[dashed] (0,0) -- (4, -4*tan{86});
+        \draw[<->] (1,0) arc (0:86:1) node[right]{$\theta$};
+        \fill (3,2) circle (0.08);
+        \node at (3.5,2.3){着陆器};
+    \end{tikzpicture}
+    \caption{下滑角约束的几何示意图}
+    \label{fig:glideslope}
+\end{figure}
+
+将$\theta = 86^\circ$代入式\eqref{eq:glideslope}，得到具体的约束不等式为
+\begin{align}
+    \sqrt{r_y^2 + r_z^2} \leq 14.30\,r_x. \label{eq:glideslope_num}
+\end{align}
+
+对于初始位置$r_{x0} = 1500\;\mathrm{m}$，水平方向最大允许偏移量为$14.30 \times 1500 \approx 21450\;\mathrm{m}$——远大于实际的初始水平偏移$2000\;\mathrm{m}$。因此，该约束在动力下降的前期和中段并不活跃，它的主要作用是约束终端段的飞行姿态：随着$r_x$趋近于零，允许的水平偏移范围也迅速缩小，保证着陆器最终以近似垂直的状态抵达着陆点。
+
+在优化问题的数值求解中，下滑角约束\eqref{eq:glideslope}是一个典型的二阶锥约束，可写为以下标准形式：
+\begin{align}
+    \|[r_y,\; r_z]^{\top}\| \leq r_x\tan\theta.
+\end{align}
+
+\subsubsection{质量约束}
+
+着陆器在动力下降过程中的质量受物理极限的约束，其取值范围为
+\begin{align}
+    m_{\mathrm{dry}} \leq m(t) \leq m_0, \quad \forall t \in [0, t_f]. \label{eq:mass_bound}
+\end{align}
+
+其中$m_{\mathrm{dry}} = 1505\;\mathrm{kg}$为着陆器结构干重，包含着陆器本体结构、有效载荷和未消耗的残余推进剂的质量。$m_0 = 1905\;\mathrm{kg}$为动力下降开始时的初始总质量，由进入段末端的状态确定。质量差$\Delta m = m_0 - m_{\mathrm{dry}} = 400\;\mathrm{kg}$即为可用于动力下降的燃料总储备。在燃料最优轨迹规划中，终端质量$m(t_f)$越接近$m_{\mathrm{dry}}$，意味着燃料消耗越接近于可用燃料储备。
+
+\subsubsection{边界条件}
+
+动力下降段的初始状态由导航系统在进入段末端给出的测量值确定，是固定的已知量：
+\begin{align}
+    \bm{r}(0) &= \bm{r}_0 = [1500,\;0,\;2000]^{\top}\;\mathrm{m}, \\
+    \bm{v}(0) &= \bm{v}_0 = [-75,\;0,\;100]^{\top}\;\mathrm{m/s}, \\
+    m(0)     &= m_0 = 1905\;\mathrm{kg}. \label{eq:init_cond}
+\end{align}
+
+终端状态要求着陆器在给定着陆时刻$t_f = 81\;\mathrm{s}$以零速度精确到达目标着陆点（火星固连坐标系原点）：
+\begin{align}
+    \bm{r}(t_f) &= \bm{0}, \\
+    \bm{v}(t_f) &= \bm{0}. \label{eq:term_cond}
+\end{align}
+
+终端质量不作约束，由动力学方程自然演化确定，但自动满足$m(t_f) \geq m_{\mathrm{dry}}$。
+
+\subsection{燃料最优目标函数}
+
+在火星动力下降任务中，推进剂是最宝贵的资源。有效载荷质量与燃料消耗直接相关，因此燃料最优化是轨迹规划的核心目标。
+
+燃料消耗总量等于初始质量减去终端质量：
+\begin{align}
+    J = m_0 - m(t_f).
+\end{align}
+
+利用式\eqref{eq:dm}将终端质量表示为对质量变化率的积分：
+\begin{align}
+    m(t_f) = m_0 + \int_0^{t_f} \dot{m}(t)\,\mathrm{d}t
+           = m_0 - \int_0^{t_f} \alpha \left\|\bm{T}_{\mathrm{total}}(t)\right\|\,\mathrm{d}t.
+\end{align}
+
+代入$J$的表达式，得到
+\begin{align}
+    J = \int_0^{t_f} \alpha \left\|\bm{T}_{\mathrm{total}}(t)\right\|\,\mathrm{d}t. \label{eq:cost_full}
+\end{align}
+
+由于$\alpha$为正常数，燃料最优等价于最小化总推力对时间的积分，即推力总冲（total impulse）：
+\begin{align}
+    \min\; J = \int_0^{t_f} \left\|\bm{T}_{\mathrm{total}}(t)\right\|\,\mathrm{d}t. \label{eq:cost_fuel}
+\end{align}
+
+此目标函数的物理意义直观明确：减小任意时刻的推力幅值或缩短推力作用时间均可降低燃料消耗。但由于终端时间$t_f$固定，质心在缩短推力时间，这意味着需要增大推力幅值以提供足够的减速度，从而产生了推力大小与作用时间之间的折中关系。
+
+将式\eqref{eq:u_def}代入式\eqref{eq:cost_fuel}，得到以加速度控制量$\bm{u}$表示的目标函数：
+\begin{align}
+    \min\; J = \int_0^{t_f} m(t)\left\|\bm{u}(t)\right\|\,\mathrm{d}t. \label{eq:cost_u}
+\end{align}
+
+该表达式中含有状态量$m(t)$与控制量$\bm{u}(t)$的乘积项，进一步体现了目标函数的非线性特性。
+
+\subsection{Bolza型最优控制问题}
+
+综合上述动力学方程、约束条件和目标函数，火星动力下降燃料最优轨迹规划问题最终可表述为以下连续时间最优控制问题的标准Bolza形式。
+
+\textbf{状态变量:}
+\begin{align}
+    \bm{x}(t) = [\bm{r}(t)^{\top},\; \bm{v}(t)^{\top},\; m(t)]^{\top} \in \mathbb{R}^7.
+\end{align}
+
+\textbf{控制变量:}
+\begin{align}
+    \bm{u}(t) = [u_x(t),\; u_y(t),\; u_z(t)]^{\top} \in \mathbb{R}^3.
+\end{align}
+
+\textbf{动力学方程:}
+\begin{align}
+    \dot{\bm{x}} = \bm{f}(\bm{x}, \bm{u}) =
+    \begin{bmatrix}
+        \bm{v} \\
+        \bm{g} + \bm{u} \\
+        -\alpha\,m\|\bm{u}\|
+    \end{bmatrix}. \label{eq:bolza_dyn}
+\end{align}
+
+\textbf{路径约束:}
+\begin{align}
+    \left\|\bm{u}(t)\right\| &\leq \frac{n_T T_2}{m(t)}, \label{eq:bolza_path1} \\
+    \sqrt{r_y^2 + r_z^2}    &\leq r_x \tan\theta, \label{eq:bolza_path2} \\
+    m_{\mathrm{dry}}        &\leq m(t) \leq m_0. \label{eq:bolza_path3}
+\end{align}
+
+\textbf{边界条件:}
+\begin{align}
+    \bm{x}(0) &= [\bm{r}_0^{\top},\; \bm{v}_0^{\top},\; m_0]^{\top}, \label{eq:bolza_bc1} \\
+    \bm{r}(t_f) &= \bm{0},\quad \bm{v}(t_f) = \bm{0}. \label{eq:bolza_bc2}
+\end{align}
+
+\textbf{目标函数（Lagrange型）:}
+\begin{align}
+    \min\; J = \int_0^{t_f} \mathcal{L}(\bm{x}, \bm{u})\,\mathrm{d}t, \label{eq:bolza_cost}
+\end{align}
+其中Lagrange函数为
+\begin{align}
+    \mathcal{L}(\bm{x}, \bm{u}) = m(t)\left\|\bm{u}(t)\right\|. \label{eq:lagrangian}
+\end{align}
+
+由于式\eqref{eq:bolza_cost}中仅含有运行代价积分项而终端代价为零，该问题在严格意义上属于Lagrange型最优控制问题，但其结构可以视为Bolza型（含积分代价+终端代价）的一个特例。
+
+式\eqref{eq:bolza_dyn}--\eqref{eq:bolza_cost}构成完整的连续时间最优控制问题。利用庞特里亚金极小值原理（Pontryagin's Minimum Principle）分析该问题的结构，可揭示其最优解的理论特征。定义Hamiltonian函数：
+\begin{align}
+    \mathcal{H}(\bm{x}, \bm{u}, \bm{\lambda}) = m\|\bm{u}\| + \bm{\lambda}_r^{\top}\bm{v} + \bm{\lambda}_v^{\top}(\bm{g} + \bm{u}) - \lambda_m\,\alpha\,m\|\bm{u}\|,
+\end{align}
+其中$\bm{\lambda} = [\bm{\lambda}_r^{\top},\, \bm{\lambda}_v^{\top},\, \lambda_m]^{\top}$为协态向量（costate）。根据极小值原理，最优控制量$\bm{u}^*$在每一时刻应最小化Hamiltonian函数：
+\begin{align}
+    \bm{u}^* = \arg\min_{\|\bm{u}\| \leq n_T T_2/m} \left[ m\|\bm{u}\| + \bm{\lambda}_v^{\top}\bm{u} - \lambda_m\,\alpha\,m\|\bm{u}\| \right].
+\end{align}
+
+整理关于$\|\bm{u}\|$的系数可知，最优控制的开关结构由协态的演化轨迹决定。这一分析揭示了最优推力幅值和方向的控制律结构，为后续章节直接法的离散化方案和松弛策略提供了理论参照。
+
+该问题具有以下数学特征：
+\begin{enumerate}
+    \item \textbf{非线性动力学:} 式\eqref{eq:bolza_dyn}中质量变化率方程包含状态与控制量的耦合项$m\|\bm{u}\|$，使系统呈现本质非线性；
+    \item \textbf{非凸控制约束:} 式\eqref{eq:bolza_path1}中控制约束的上界依赖于状态$m(t)$，属于状态相关的控制约束（state-dependent constraint），导致可行域非凸；
+    \item \textbf{二阶锥约束:} 下滑角约束\eqref{eq:bolza_path2}是典型的二阶锥约束，形式为$\|[\cdot]\| \leq \text{linear expression}$；
+    \item \textbf{自由终端质量:} 终端质量由动力学自然确定，仅受不等式下界约束$m(t_f) \geq m_{\mathrm{dry}}$；
+    \item \textbf{多约束耦合:} 路径约束与动力学方程之间存在复杂的相互耦合关系，例如推力上界约束的松紧程度取决于当前质量，而质量又由推力积分决定。
+\end{enumerate}
+
+由于上述非线性和多约束耦合特性，该问题的解析求解极为困难。传统间接法虽然能通过求解两点边值问题得到最优解，但面对多约束和状态相关约束时，初值猜测极为敏感，收敛十分困难。直接法将连续时间控制问题进行离散化，将其转化为有限维参数优化问题，具有更强的鲁棒性，是工程实践中的主流方法。
+
+本文后续章节将基于凸优化理论，通过对上述最优控制问题进行凸化松弛和离散化处理，将其转化为可高效求解的二阶锥规划（Second-Order Cone Programming, SOCP）问题。转化路径包含三个关键步骤。
+
+\textbf{步骤一：变量替换。}引入新状态变量$z(t) = \ln m(t)$，对式\eqref{eq:sys3}进行对数变换：
+\begin{align}
+    \dot{z} = \frac{\dot{m}}{m} = -\alpha\|\bm{u}\|. \label{eq:log_mass}
+\end{align}
+变换后，质量动力学方程变为关于$z$的线性微分方程，消除了原方程中状态与控制量的乘积耦合。同时，质量约束\eqref{eq:bolza_path3}转化为$z$的线性约束：
+\begin{align}
+    \ln m_{\mathrm{dry}} \leq z(t) \leq \ln m_0.
+\end{align}
+
+\textbf{步骤二：约束松弛。}推力上界约束\eqref{eq:bolza_path1}在变量替换后变为
+\begin{align}
+    \|\bm{u}(t)\| \leq n_T T_2\,e^{-z(t)},
+\end{align}
+该约束的右端项$e^{-z(t)}$关于$z$是凸函数，但以$z$为自变量的形式使得约束集仍然非凸。通过引入松弛变量$\sigma(t) \geq \|\bm{u}(t)\|$并利用$e^{-z}$的凸性进行序列线性化或直接写作SOC约束，可将该非凸约束转化为凸约束近似。同时需要证明松弛的最优性，即最优解处$\sigma(t) = \|\bm{u}(t)\|$严格成立。
+
+\textbf{步骤三：直接转录。}将时间区间$[0, t_f]$等分为$N$个子区间，在每个子区间上采用零阶保持（Zero-Order Hold, ZOH）离散化策略，即控制量在每一段内保持为常值。利用梯形法或欧拉法对微分方程进行数值积分，得到一组等式约束（即动力学配点约束）。最终获得一个标准SOCP问题，可直接利用内点法求解器（如ECOS、Clarabel等）高效求解。
+
+上述三个步骤构成完整的问题转化链条。在第\ref{chap:convexification}章中，将详细阐述每一步的数学推导细节，包括松弛紧性的严格证明和离散化误差分析。
+
+\subsection{无量纲化处理}
+
+为改善数值求解的收敛性和计算精度，对上述最优控制问题中的状态变量和控制变量进行无量纲化处理。引入无量纲基准量：位置基准$r_{\mathrm{ref}} = r_{x0} = 1500\;\mathrm{m}$，质量基准$m_{\mathrm{ref}} = m_0 = 1905\;\mathrm{kg}$，时间基准$t_{\mathrm{ref}} = 1\;\mathrm{s}$。无量纲变量定义为：
+\begin{align}
+    \bar{\bm{r}} &= \frac{\bm{r}}{r_{\mathrm{ref}}}, &
+    \bar{\bm{v}} &= \frac{\bm{v}\,t_{\mathrm{ref}}}{r_{\mathrm{ref}}}, &
+    \bar{m}      &= \frac{m}{m_{\mathrm{ref}}}, &
+    \bar{t}      &= \frac{t}{t_{\mathrm{ref}}}, \\
+    \bar{\bm{u}} &= \frac{\bm{u}\,t_{\mathrm{ref}}^2}{r_{\mathrm{ref}}}, &
+    \bar{g}      &= \frac{g\,t_{\mathrm{ref}}^2}{r_{\mathrm{ref}}}, &
+    \bar{\alpha} &= \frac{\alpha\,m_{\mathrm{ref}}\,r_{\mathrm{ref}}}{t_{\mathrm{ref}}^2}.
+\end{align}
+
+代入式\eqref{eq:sys1}--\eqref{eq:sys3}，得到无量纲动力学方程：
+\begin{align}
+    \frac{\mathrm{d}\bar{\bm{r}}}{\mathrm{d}\bar{t}} &= \bar{\bm{v}}, \\
+    \frac{\mathrm{d}\bar{\bm{v}}}{\mathrm{d}\bar{t}} &= \bar{\bm{g}} + \bar{\bm{u}}, \\
+    \frac{\mathrm{d}\bar{m}}{\mathrm{d}\bar{t}} &= -\bar{\alpha}\,\bar{m}\|\bar{\bm{u}}\|.
+\end{align}
+
+无量纲化处理后，位置变量量级约为$O(1)$，速度变量量级约为$O(10^{-1})$，质量变量量级为$O(1)$，控制变量量级约为$O(10^{-3})$。各变量数值范围得到大幅压缩，与求解器内部默认的数值容差（通常在$10^{-8}$到$10^{-6}$之间）相匹配，有效提高了数值优化的收敛性和计算精度。此外，无量纲化还消除了物理单位不统一可能引入的数值误差。本文后续章节的数值求解均采用无量纲化后的变量。

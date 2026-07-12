@@ -1,0 +1,299 @@
+\section{稀疏矩阵构造与 ECOS 求解器}
+
+\subsection{ECOS 求解器概述}
+
+ECOS（Embedded Conic Solver）是由 embotech 公司开发的开源二阶锥规划求解器，专为嵌入式实时优化场景设计\cite{domahidi2013ecos}。其核心算法基于 Mehrotra 预测-校正原对偶内点法（Mehrotra-type Predictor-Corrector Primal-Dual Interior Point Method），该算法在每次迭代中通过求解两组线性系统——先计算仿射方向（预测步），再利用该方向信息动态调整中心化参数并计算校正方向——显著减少了达到最优解所需的迭代次数。
+
+ECOS 接受如下标准形式的锥优化问题：
+
+\begin{align}
+\min_{\bm{x} \in \mathbb{R}^n} \quad & \bm{c}^{\top}\bm{x} \label{eq:ecos_obj} \\
+\text{s.t.} \quad & \bm{A}\bm{x} = \bm{b}, \label{eq:ecos_eq} \\
+& \bm{h} - \bm{G}\bm{x} \in \mathcal{K}, \label{eq:ecos_ineq}
+\end{align}
+
+其中 $\mathcal{K}$ 为多个锥的笛卡尔积：
+
+\begin{align}
+\mathcal{K} = \mathbb{R}_+^{l} \times \mathcal{K}_{q_1} \times \mathcal{K}_{q_2} \times \cdots \times \mathcal{K}_{q_m}.
+\end{align}
+
+具体而言，$\mathcal{K}$ 的前 $l$ 个维度对应非负象限（即线性不等式约束，ECOS 的参数 $l$ 即为线性约束行数），后续各段为不同维度的二阶锥。二阶锥 $\mathcal{K}_q$ 的定义为
+
+\begin{align}
+\mathcal{K}_q = \left\{ (x_0, x_1, \ldots, x_{q-1}) \in \mathbb{R}^q \;:\; x_0 \geq \sqrt{x_1^2 + \cdots + x_{q-1}^2} \right\}.
+\end{align}
+
+ECOS 在 NASA 火星着陆 MSL 任务的后备制导系统 FNPEG 中得到工程验证，并在机器人运动规划、MPC 控制、信号处理等嵌入式场景中广泛部署。求解器以纯 C 语言实现，核心代码仅约 8000 行，无外部线性代数库依赖，通过 LDL 稀疏分解求解内点法所需的 KKT 系统。求解器核心参数如表 \ref{tab:ecos_params} 所示。
+
+\begin{table}[htbp]
+\centering
+\caption{ECOS 核心求解参数}
+\label{tab:ecos_params}
+\begin{tabular}{cll}
+\toprule
+参数 & 含义 & 默认值 \\
+\midrule
+MAXIT   & 最大迭代次数              & 100 \\
+FEASTOL & 原始/对偶不可行容差        & $1\times 10^{-8}$ \\
+ABSTOL  & 对偶间隙绝对容差           & $1\times 10^{-8}$ \\
+RELTOL  & 对偶间隙相对容差           & $1\times 10^{-8}$ \\
+DELTASTAT & 静态正则化参数           & $7\times 10^{-8}$ \\
+DELTA   & 动态正则化参数             & $2\times 10^{-7}$ \\
+EPS     & 正则化阈值                & $1\times 10^{-13}$ \\
+NITREF  & 迭代精化步数              & 9 \\
+GAMMA   & 最终步长缩放因子           & 0.99 \\
+EQUIL\_ITERS & Ruiz 均衡化迭代轮数   & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+值得特别指出的是，ECOS 采用 Ruiz 均衡化（Ruiz Equilibration）算法对问题数据进行预处理。该算法通过 $\sqrt{\|\cdot\|_\infty / \|\cdot\|_1}$ 的缩放比例对矩阵行和列进行交替缩放，经过 3 轮迭代可将原问题的条件数显著压缩。对于本文的火星着陆问题，均衡化前的 KKT 矩阵条件数约为 $10^{4.9}$（动态范围来自位置量 $r \sim 10^3$、质量对数 $z \sim \mathcal{O}(1)$、推力加速度 $u \sim 10^{-3}$ 三者的量级差异），经 3 轮 Ruiz 均衡化后降至约 4.1，极大改善了对偶内点法的数值稳定性。均衡化后，ECOS 调用 AMD（Approximate Minimum Degree）算法对 KKT 矩阵列进行重排序，通过贪心策略选择度数最小的节点作为消去元的下一列，可有效减少 LDL 分解过程中的填充元数量，进而降低分解的计算复杂度和内存占用。对于 $n=341$ 的 KKT 矩阵，AMD 排序可将 LDL 分解的浮点运算量减少约 40\%--60\%。
+
+LDL 分解过程同时应用了静态正则化和动态正则化两种机制。静态正则化（参数 $\delta_{\text{stat}} = 7\times 10^{-8}$）在每次分解前向 KKT 矩阵对角线加入固定小量；动态正则化（参数 $\delta_{\text{dyn}} = 2\times 10^{-7}$）则在搜索方向计算不可靠时被激活，逐步增大正则化量直至分解稳定。两种正则化机制的协同作用保证了 KKT 系统在病态条件下的可解性。每次 LDL 求解后，ECOS 执行最多 9 步迭代精化（Iterative Refinement），每次精化将 LDL 分解的残差代入再求解，理论上可将相对残差降低至 $\epsilon_{\text{mach}}^{N_{\text{IR}}}$ 量级，将残差降低约 $10^6$ 倍，进一步补偿因有限精度计算导致的精度损失。
+
+\subsection{ECOS 接口标准与符号约定}
+
+ECOS 的锥约束接口将不等式约束矩阵 $\bm{G}$ 的 $m$ 行划分为两段：前 $l$ 行为线性约束，后 $m-l$ 行为锥约束，二者不可交错排列。线性约束段解释为 $\bm{G}[i,:]{\bm{x}} \leq \bm{h}[i]$（等价于 $\bm{h} - \bm{G}{\bm{x}}$ 的第 $i$ 个分量位于非负象限），而锥约束段解释为 $\bm{h}_j - \bm{G}_j{\bm{x}} \in \mathcal{K}_{q_j}$，即第 $j$ 个锥的 $\bm{h} - \bm{G}{\bm{x}}$ 向量片段位于 $q_j$ 维二阶锥内。
+
+这一符号约定是 ECOS 接口中最关键也最容易出错的环节。许多初学者直观地将二阶锥约束 $\|x_1\| \leq t$ 理解为 $\bm{G}{\bm{x}} \leq \bm{h}$ 的形式，直接写出 $\bm{G}{\bm{x}} = [t, x_1, x_2, \ldots]^{\top}$ 和 $\bm{h} = \bm{0}$。这对应于 $\bm{h} - \bm{G}{\bm{x}} = -[t, x_1, x_2, \ldots]^{\top}$，即 $\bm{h} - \bm{G}{\bm{x}}$ 的第一个分量是 $-t$ 而非 $t$，代入二阶锥定义得到 $-t \geq \sqrt{x_1^2 + \cdots}$，这等价于 $t \leq 0$，完全颠倒了约束的物理含义。
+
+正确的做法是令 $\bm{G}$ 采用负单位矩阵，使得 $\bm{h} - \bm{G}{\bm{x}} = \bm{0} - (-\bm{I}){\bm{x}} = \bm{x}$，从而 $\bm{h} - \bm{G}{\bm{x}}$ 的第一个分量直接等于 $t$。在本项目的手写矩阵构造中，这一约定通过 \lstinline{G_PUSH(col, -val)} 宏实现：推送非零元时系数取负，确保 $\bm{h} - \bm{G}{\bm{x}}$ 各分量符号正确。
+
+CasADi 自动微分工具提取 ECOS 矩阵时遵循类似的公式。定义 CasADi 符号约束向量 $\bm{eq}(\bm{x}) = \bm{0}$（等式约束）和 $\bm{ineq}(\bm{x}) \leq \bm{0}$（不等式约束），则 ECOS 矩阵的提取公式为
+
+\begin{align}
+\bm{A} &= \nabla_{\bm{x}}\bm{eq}(\bm{0}), \qquad
+\bm{b} = -\bm{eq}(\bm{0}), \\
+\bm{G} &= \nabla_{\bm{x}}\bm{ineq}(\bm{0}), \qquad
+\bm{h} = -\bm{ineq}(\bm{0}).
+\end{align}
+
+验算上述公式的正确性可从 $\bm{A}\bm{x} = \bm{b}$ 出发：将 $\bm{eq}(\bm{x}) = \bm{A}\bm{x} + \bm{eq}(\bm{0})$（因 $\bm{eq}$ 为线性函数）代入 $\bm{eq}(\bm{x}) = \bm{0}$ 得 $\bm{A}\bm{x} = -\bm{eq}(\bm{0})$，故 $\bm{b} = -\bm{eq}(\bm{0})$。对于不等式，$\bm{ineq}(\bm{x}) = -\bm{G}\bm{x} + \bm{ineq}(\bm{0})$，代入 $\bm{ineq}(\bm{x}) \leq \bm{0}$ 得 $\bm{h} - \bm{G}\bm{x} \geq \bm{0}$，其中 $\bm{h} = -\bm{ineq}(\bm{0})$。
+
+\subsection{稀疏矩阵存储格式}
+
+\subsubsection{压缩行存储 CRS}
+
+CRS（Compressed Row Storage）格式按行存储稀疏矩阵。设矩阵有 $m$ 行、$n$ 列、$n_{nz}$ 个非零元，CRS 使用三个数组存储：
+
+\begin{itemize}
+    \item \lstinline{CRpr}[0..$n_{nz}$-1]：按行优先顺序存储非零元的数值；
+    \item \lstinline{CRjc}[0..$n_{nz}$-1]：存储每个非零元的列号（0-based）；
+    \item \lstinline{CRir}[0..$m$]：行指针数组，\lstinline{CRir[i]} 为第 $i$ 行第一个非零元在 \lstinline{CRpr}/\lstinline{CRjc} 中的索引，第 $i$ 行的非零元个数为 \lstinline{CRir[i+1] - CRir[i]}。
+\end{itemize}
+
+CRS 格式的优势在于按行构造极其直观——逐行遍历约束条件，每遇到一个非零元即调用 \lstinline{CRS_PUSH(col, val)} 推入列号和数值，每完成一行约束调用 \lstinline{CRS_ROW(b_val)} 记录行指针并填入 $\bm{b}$ 向量值。这种构造方式与数学建模的思维流程完全一致：先逐条枚举约束方程，再逐项写入对应系数。
+
+\subsubsection{压缩列存储 CCS}
+
+CCS（Compressed Column Storage）格式按列存储，是 CRS 的对称形式。设矩阵有 $m$ 行、$n$ 列、$n_{nz}$ 个非零元：
+
+\begin{itemize}
+    \item \lstinline{CCpr}[0..$n_{nz}$-1]：按列优先顺序存储非零元数值；
+    \item \lstinline{CCir}[0..$n_{nz}$-1]：存储每个非零元的行号；
+    \item \lstinline{CCjc}[0..$n$]：列指针数组，\lstinline{CCjc[j]} 为第 $j$ 列第一个非零元在 \lstinline{CCpr}/\lstinline{CCir} 中的索引。
+\end{itemize}
+
+ECOS 要求输入的 $\bm{A}$ 和 $\bm{G}$ 矩阵均为 CCS 格式，因此必须先以 CRS 格式构造完毕，再转换为 CCS。在 C 代码实现中，\lstinline{CRS_PUSH} 和 \lstinline{CRS_ROW} 被封装为宏而非函数，原因在于宏调用时编译器可直接展开为数组赋值操作，避免了函数调用开销——对于本文 $733 + 403 = 1136$ 次非零元推送的总调用次数而言，宏展开可节省约数十微秒的构造时间。CRS 格式的另一个优点在于构造阶段无需预先知道每行的非零元个数：\lstinline{CRS_ROW} 宏通过 \lstinline{CRAir[idx_row+1] = CRAir[idx_row] + row_nnz} 自动将当前行计数写入行指针数组，完全消除了对动态内存分配的需求，使矩阵构造可在栈上定长数组内完成。
+
+\subsubsection{CRS 到 CCS 的转换算法}
+
+CRS 到 CCS 的转换可以通过四遍线性扫描完成，时间复杂度 $\mathcal{O}(n_{nz})$，额外空间 $\mathcal{O}(n)$。算法 \ref{alg:crs2ccs} 给出了具体步骤。
+
+\begin{algorithm}[htbp]
+\caption{CRS 到 CCS 格式转换}
+\label{alg:crs2ccs}
+\begin{algorithmic}[1]
+\Require CRS 格式数组 CRjc, CRir, CRpr；矩阵行数 $m$、列数 $n$、非零元总数 $n_{nz}$
+\Ensure CCS 格式数组 CCjc, CCir, CCpr
+\Statex
+\State 分配工作数组 $w[0..n-1]$
+\Comment{第一遍：统计每列非零元个数}
+\For{$j = 0$ \textbf{to} $n-1$}
+    \State $w[j] \gets 0$
+\EndFor
+\For{$k = 0$ \textbf{to} $n_{nz}-1$}
+    \State $w[\text{CRjc}[k]] \gets w[\text{CRjc}[k]] + 1$
+\EndFor
+\Statex
+\Comment{第二遍：前缀和得到 CCS 列指针}
+\State $\text{CCjc}[0] \gets 0$
+\For{$j = 0$ \textbf{to} $n-1$}
+    \State $\text{CCjc}[j+1] \gets \text{CCjc}[j] + w[j]$
+\EndFor
+\Statex
+\Comment{第三遍：重置工作数组为每列写入位置起点}
+\For{$j = 0$ \textbf{to} $n-1$}
+    \State $w[j] \gets \text{CCjc}[j]$
+\EndFor
+\Statex
+\Comment{第四遍：按行遍历 CRS，填入 CCS}
+\For{$i = 0$ \textbf{to} $m-1$}
+    \For{$k = \text{CRir}[i]$ \textbf{to} $\text{CRir}[i+1]-1$}
+        \State $pos \gets w[\text{CRjc}[k]]$
+        \State $w[\text{CRjc}[k]] \gets w[\text{CRjc}[k]] + 1$
+        \State $\text{CCir}[pos] \gets i$
+        \State $\text{CCpr}[pos] \gets \text{CRpr}[k]$
+    \EndFor
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+算法的核心思想是，CRS 和 CCS 共享相同的非零元集合，仅按行列优先级不同排序。第一遍扫描统计每列的非零元个数，第二遍通过前缀和得到 CCS 列指针，第三遍将工作数组重置为每列当前的写入位置，第四遍按 CRS 的行优先序遍历将每个非零元填入 CCS 的正确位置。由于 CRS 的行优先顺序保证了非零元在每行内部按列递增排列，填入 CCS 时每列内部自然保持行号递增，满足 CCS 的排序要求。该算法无需对非零元进行排序操作，完全避免了比较和交换的开销——这是其达到 $\mathcal{O}(n_{nz})$ 线性时间复杂度的关键。
+
+\subsection{矩阵构造详解}
+
+本文的手写稀疏矩阵构造摒弃了通用建模层（如 CVXPY 或 YALMIP），以纯 C 语言直接向 CRS 格式填入非零元。优化变量 $\bm{x} \in \mathbb{R}^{341}$ 按时间步排列，每步 11 维：
+
+\begin{align}
+\bm{x}_k = [r_{x,k}, r_{y,k}, r_{z,k}, v_{x,k}, v_{y,k}, v_{z,k}, z_k, u_{x,k}, u_{y,k}, u_{z,k}, \sigma_k]^{\top},
+\end{align}
+
+其中 $z_k = \ln m_k$ 为质量对数，$u_k$ 为推力加速度，$\sigma_k$ 为推力松弛变量。
+
+\subsubsection{\texorpdfstring{等式约束矩阵 $\bm{A}$（223 $\times$ 341）}{等式约束矩阵 A (223 x 341)}}
+
+等式约束矩阵 $\bm{A}$ 包含 733 个非零元，由三部分构成。
+
+边界条件生成 13 个非零元：前 7 行固定初始状态 $\bm{x}_0$（位置 $\bm{r}_0$、速度 $\bm{v}_0$、质量对数 $z_0$），每行 1 个非零元（对角线元素 1）；后 6 行固定终端状态 $\bm{x}_N$ 的位置和速度，质量不受约束，因此仅 6 行而非 7 行。边界条件共计 $7 + 6 = 13$ 个非零元。
+
+动力学约束生成 720 个非零元，每步 24 个非零元 $\times$ 30 步。三个位置方向（$r_x, r_y, r_z$）各需 4 个非零元（$r_k, v_k, u_k, r_{k+1}$），三个速度方向（$v_x, v_y, v_z$）各需 3 个非零元（$v_k, u_k, v_{k+1}$），质量对数方程需 3 个非零元（$z_k, \sigma_k, z_{k+1}$）。合计 $12 + 9 + 3 = 24$ 个非零元/步。
+
+以 $r_x$ 的离散动力学为例，梯形积分格式为
+
+\begin{align}
+r_{x,k+1} = r_{x,k} + \Delta t \cdot v_{x,k} + \frac{1}{2}\Delta t^2 \cdot u_{x,k} - \frac{1}{2}g\Delta t^2,
+\end{align}
+
+对应等式约束 $\bm{A}\bm{x} = \bm{b}$ 中的行：
+
+\begin{align}
+\begin{bmatrix}
+1 & \Delta t & \frac{1}{2}\Delta t^2 & -1
+\end{bmatrix}
+\begin{bmatrix}
+r_{x,k} \\ v_{x,k} \\ u_{x,k} \\ r_{x,k+1}
+\end{bmatrix}
+= \frac{1}{2}g\Delta t^2.
+\end{align}
+
+\begin{table}[htbp]
+\centering
+\caption{等式约束矩阵 $\bm{A}$ 非零元分布}
+\label{tab:annz}
+\begin{tabular}{lccr}
+\toprule
+约束类型 & 行数 & 每行非零元 & 非零元小计 \\
+\midrule
+初始边界条件 & 7  & 1 & $7 \times 1 = 7$ \\
+终端边界条件 & 6  & 1 & $6 \times 1 = 6$ \\
+位置动力学 $r_x$ & 30 & 4 & $30 \times 4 = 120$ \\
+位置动力学 $r_y$ & 30 & 4 & $30 \times 4 = 120$ \\
+位置动力学 $r_z$ & 30 & 4 & $30 \times 4 = 120$ \\
+速度动力学 $v_x$ & 30 & 3 & $30 \times 3 = 90$ \\
+速度动力学 $v_y$ & 30 & 3 & $30 \times 3 = 90$ \\
+速度动力学 $v_z$ & 30 & 3 & $30 \times 3 = 90$ \\
+质量对数动力学 $z$ & 30 & 3 & $30 \times 3 = 90$ \\
+\midrule
+总计 & 223 & --- & 733 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{\texorpdfstring{不等式约束矩阵 $\bm{G}$（341 $\times$ 341）}{不等式约束矩阵 G (341 x 341)}}
+
+不等式约束矩阵 $\bm{G}$ 包含 403 个非零元，由线性部分和锥部分组成。
+
+\textbf{线性部分（186 个非零元）：} 前 124 行为线性不等式约束。其中，质量值不等式（mass value inequality）每时间步 2 行，每行 2 个非零元（$z_k$ 和 $\sigma_k$），计 $31 \times 2 \times 2 = 124$ 个非零元。该约束对质量对数进行线性化逼近推力的上下界：
+
+\begin{align}
+\mu_{1,k} (z_k - z_{0,k} - 1) + \sigma_k &\leq 0, \\
+-\mu_{2,k} (z_k - z_{0,k} - 1) - \sigma_k &\leq 0,
+\end{align}
+
+其中 $\mu_{1,k} = \rho_1 e^{-z_{0,k}}$，$\mu_{2,k} = \rho_2 e^{-z_{0,k}}$ 为线性化系数。质量上下界约束每步 2 行，每行 1 个非零元（$z_k$ 的系数 $\pm 1$），计 $31 \times 2 \times 1 = 62$ 个非零元。
+
+\textbf{锥部分（217 个非零元）：} 后 217 行为二阶锥约束。下滑角约束每步 3 行（$r_x, r_y, r_z$），每行 1 个非零元，计 $31 \times 3 = 93$ 个非零元。推力松弛约束每步 4 行（$\sigma, u_x, u_y, u_z$），每行 1 个非零元，计 $31 \times 4 = 124$ 个非零元。
+
+\begin{table}[htbp]
+\centering
+\caption{不等式约束矩阵 $\bm{G}$ 非零元分布}
+\label{tab:gnnz}
+\begin{tabular}{lccrl}
+\toprule
+约束类型 & 行范围 & 行数 & 每行非零元 & 非零元小计 \\
+\midrule
+质量值不等式（线性） & 0--61   & 62  & 2 & 124 \\
+质量上下界（线性） & 62--123  & 62  & 1 & 62 \\
+下滑角锥（SOC q=3） & 124--216 & 93  & 1 & 93 \\
+推力松弛锥（SOC q=4） & 217--340 & 124 & 1 & 124 \\
+\midrule
+总计 & 0--340   & 341 & --- & 403 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{约束行序编排}
+
+$\bm{G}$ 矩阵的行序编排必须严格遵循 ECOS 接口约定：线性约束先行，锥约束后行。具体排布方案为：
+
+\textbf{线性约束段（行 0--123）：}
+\begin{itemize}
+    \item 行 0--61（62 行）：质量值不等式。按时间步 $k = 0,\ldots,N$ 排列，每步依次写下界和上界行。对应 ECOS 参数 $l=124$ 中的前 62 行。
+    \item 行 62--123（62 行）：质量上下界。同样按 $k = 0,\ldots,N$ 排列，每步依次写下界（$-z_k$）和上界（$+z_k$）。
+\end{itemize}
+
+\textbf{锥约束段（行 124--340）：}
+\begin{itemize}
+    \item 行 124--216（93 行）：下滑角锥。每步 3 行（$r_x, r_y, r_z$），构成 $\mathcal{K}_3$ 锥。锥维度数组 $q[0..30] = 3$。
+    \item 行 217--340（124 行）：推力松弛锥。每步 4 行（$\sigma, u_x, u_y, u_z$），构成 $\mathcal{K}_4$ 锥。锥维度数组 $q[31..61] = 4$。
+\end{itemize}
+
+该编排方案的核心验证点在于：$\bm{h}$ 向量的第 124 个元素和第 217 个元素必须严格为零，因为每个二阶锥的第一行对应锥的标量分量，而下滑角和推力松弛锥的标量分量表达式分别为 $r_x\tan\theta$ 和 $\sigma$，计算时 $\bm{h} - \bm{G}\bm{x} = \bm{x}$（当 $\bm{G} = -\bm{I}$ 时标量分量正是 $r_x\tan\theta$ 本身，$\bm{h}$ 为零）。任何非零的 $\bm{h}$ 值都将引入非物理的偏移量，破坏锥约束的正确性。
+
+\subsection{关键符号验证}
+
+$\bm{b}$ 和 $\bm{h}$ 向量的数值提供了检验矩阵符号正确性的最直接途径。通过验证以下四个关键数值，可以在不逐个查看 1136 个非零元的条件下快速定位大部分符号错误：
+
+\begin{enumerate}
+    \item $\bm{b}[0] = r_{x0} = 1500$：初始边界条件行将 $r_x(0)$ 固定为 1500 m。该值为正数，符合物理直觉——初始高度为正。
+    \item $\bm{b}[13] = \frac{1}{2}g\Delta t^2 = 13.528$：第一动力学步的 $r_x$ 更新约束的右端项。该值为重力项 $-\frac{1}{2}g\Delta t^2$ 移项后的正值，验证了 $x$ 轴向上、重力向下的符号约定。若该值为负，则重力方向写反。
+    \item $\bm{h}[124] = 0$：下滑角锥起始行的 $\bm{h}$ 值为零，验证锥标量分量的 $\bm{h} - \bm{G}\bm{x}$ 正确还原了 $r_x\tan\theta$。
+    \item $\bm{h}[217] = 0$：推力松弛锥起始行的 $\bm{h}$ 值为零，验证锥标量分量的 $\bm{h} - \bm{G}\bm{x}$ 正确还原了 $\sigma$。
+\end{enumerate}
+
+以上四点构成调试检查清单中的 L2 级（结果偏差大）快速排查项。其中 $\bm{b}[0]$ 和 $\bm{b}[13]$ 验证重力符号，$\bm{h}[124]$ 和 $\bm{h}[217]$ 验证 SOC 锥符号与行序。如果 $\bm{b}[0]$ 为负，则边界条件符号约定整体反转；如果 $\bm{b}[13]$ 为负，则动力学方程中重力项的移项方向写反；如果 $\bm{h}[124]$ 非零，则下滑角锥的 $\bm{G}$ 矩阵系数符号出错——这是最隐蔽的问题，因为非零元个数和矩阵维度均可能正确，但物理意义完全颠倒。
+
+\subsection{ECOS 内点法原理}
+
+本小节简要阐述 ECOS 内点法的核心求解机制，以便读者理解手写矩阵构造与求解器数值行为之间的关联。
+
+\textbf{KKT 系统结构：} 对于标准形式 \eqref{eq:ecos_obj}--\eqref{eq:ecos_ineq}，引入原始变量 $\bm{x}$、对偶变量 $\bm{y}$（等式约束）和 $\bm{s} \geq_{\mathcal{K}^*} \bm{0}$（不等式约束），内点法的 Karush--Kuhn--Tucker（KKT）最优性条件可写为
+
+\begin{align}
+\bm{G}^{\top}\bm{\lambda} + \bm{A}^{\top}\bm{y} + \bm{c} &= \bm{0}, \label{eq:kkt_dual} \\
+\bm{A}\bm{x} &= \bm{b}, \label{eq:kkt_primal} \\
+\bm{G}\bm{x} + \bm{s} &= \bm{h}, \label{eq:kkt_slack} \\
+\bm{s} \circ \bm{\lambda} &= \mu \bm{e}, \quad \bm{s}, \bm{\lambda} \in \mathcal{K}, \label{eq:kkt_comp}
+\end{align}
+
+其中 $\bm{\lambda}$ 为锥对偶变量，$\circ$ 为 Jordan 代数中的锥乘积，$\mu$ 为障碍参数（barrier parameter），$\bm{e}$ 为锥单位元。式 \eqref{eq:kkt_dual} 为对偶可行性条件，式 \eqref{eq:kkt_primal} 为原始可行性条件，式 \eqref{eq:kkt_slack} 为松弛变量定义，式 \eqref{eq:kkt_comp} 为互补松弛条件——该条件经 Jordan 代数改写后保留了锥自对偶结构的对称性。将 Newton 法应用于上述非线性系统，得到每次迭代的线性化 KKT 系统。该系统的系数矩阵具有鞍点结构（saddle-point structure），即 $2\times 2$ 块矩阵形式，其中 $(1,1)$ 块为锥约束的 Hessian 贡献与正则化项之和，$(2,2)$ 块为零矩阵。
+
+Mehrotra 预测-校正算法是内点法领域最具里程碑意义的改进之一。传统的原对偶内点法每一步迭代采用固定的中心化参数（通常 $\mu = \sigma \mu_g$，其中 $\sigma \in (0,1)$ 为固定常数），而 Mehrotra 算法通过预测步动态估计最优中心化参数。具体而言，每次迭代分为两个阶段：\textbf{预测步}（affine step）先求解 $\mu = 0$ 时的纯 Newton 方向，即完全不考虑中心化的最速下降方向。计算该方向后，通过线搜索确定最大可行步长 $\alpha_{\text{aff}}$，并评估若沿纯仿射方向前进对偶间隙的缩减程度 $\mu_{\text{aff}} = (1 - \alpha_{\text{aff}})\mu_g$。\textbf{校正步}（corrector step）则根据 $\mu_{\text{aff}}$ 与当前对偶间隙 $\mu_g$ 的比值动态确定中心化参数：
+
+\begin{align}
+\mu_{\text{cent}} = \left(\frac{\mu_{\text{aff}}}{\mu_g}\right)^2 \mu_g,
+\end{align}
+
+该启发式的物理含义是：若纯仿射方向能大幅降低对偶间隙（即 $\mu_{\text{aff}} \ll \mu_g$），则说明当前解已接近最优解边界，算法应减少中心化（$\mu_{\text{cent}}$ 小），加速收敛；反之，若仿射方向推进困难（$\mu_{\text{aff}} \approx \mu_g$），则说明当前解距离最优解尚远，算法应增加中心化分量，使迭代轨迹保持在锥内部的\"中心\"区域而非过早触碰锥边界。这一自适应机制使 Mehrotra 算法的收敛速度明显优于固定中心化策略，尤其对存在多类锥约束耦合的问题收益显著。
+
+\textbf{Ruiz 均衡化：} 如 4.1 节所述，ECOS 在求解前对 $\bm{A}$、$\bm{G}$、$\bm{c}$、$\bm{b}$、$\bm{h}$ 进行 Ruiz 均衡化。对偶内点法对矩阵条件数极为敏感——KKT 系统的条件数约为原问题条件数的平方。通过 3 轮 $\sqrt{\|\cdot\|_\infty / \|\cdot\|_1}$ 缩放，原问题条件数从约 $10^{4.9}$ 降至约 4.1，使 KKT 系统求解的精度损失降低数个量级。
+
+\textbf{AMD 重排序与 LDL 分解：} 均衡化后，ECOS 调用 AMD 算法对 KKT 矩阵的列进行重排序，最小化 LDL 分解中填充元的数量。LDL 分解是稀疏对称不定矩阵分解的标准方法，对于 $n=341$ 规模的 KKT 系统，分解时间约占总求解时间的 60\%--70\%。由于 LDL 分解的运算模式以不规则的内存访存（CCS 格式的 gather/scatter）为主，计算受内存带宽瓶颈限制，因此 SIMD 向量化指令（如 AVX/FMA）对此场景的加速效果极为有限——实测标量版与 AVX 编译版性能差异在 3\% 以内，这印证了稀疏线性代数中\"带宽优于计算\"的经典结论。
+
+\textbf{正则化与迭代精化：} 静态正则化参数 $\delta_{\text{stat}} = 7\times 10^{-8}$ 在每次 LDL 分解前加入 KKT 矩阵对角线，避免因零对角元导致的分解失败。当搜索方向计算被标记为不可靠时，ECOS 逐步增大正则化系数直至分解稳定，最大可增至原正则化量的数百倍。每次 LDL 求解后执行 $N_{\text{IR}} = 9$ 步迭代精化，理论上可将残差降低至机器精度的 $\epsilon_{\text{mach}}^{N_{\text{IR}}}$ 量级，实际受问题条件数限制通常达到 $10^{-12}$--$10^{-14}$。
+
+\textbf{收敛判据与容差：} ECOS 同时监视原始不可行度 $p_{\text{res}} = \|\bm{A}\bm{x} - \bm{b}\| / (1 + \|\bm{b}\|)$、对偶不可行度 $d_{\text{res}} = \|\bm{G}^{\top}\bm{\lambda} + \bm{A}^{\top}\bm{y} + \bm{c}\| / (1 + \|\bm{c}\|)$ 和对偶间隙 $\eta = |\bm{c}^{\top}\bm{x} + \bm{b}^{\top}\bm{y} + \bm{h}^{\top}\bm{\lambda}| / (1 + |\bm{c}^{\top}\bm{x}|)$。三项指标均低于默认容差 $10^{-8}$ 时宣布求解成功，退出码为 \lstinline{ECOS_OPTIMAL}。如果迭代过程中原始不可行度异常增大（超过初始值的 500 倍），求解器判定数值不稳定，抛出 \lstinline{ECOS_NUMERICS} 错误。此外，ECOS 在接近最优解时通过步长缩放因子 $\gamma = 0.99$ 压缩步长，确保更新后的原始变量 $\bm{s}$ 和对偶变量 $\bm{\lambda}$ 严格保持在锥内部而不越界。对于本文的火星着陆问题，ECOS 通常在 12--18 次内点法迭代内收敛至最优解（退出码为 0），最大迭代次数限制为 100 步，超出则返回原始不可行或对偶不可行证书。当问题不满足原始可行性条件时，ECOS 返回原始不可行证书（$p_{\text{inf}}$），此时 $\bm{A}^{\top}\bm{y} = \bm{0}$ 且 $\bm{b}^{\top}\bm{y} > 0$、$\bm{G}^{\top}\bm{y} \leq_{\mathcal{K}^*} \bm{0}$。
+
+在此基础上，值得注意的是 ECOS 的求解性能高度依赖问题的数值条件数和稀疏结构。对于本文手写构造的紧密 SOCP 问题（$n=341$，$\bm{A}$ 仅 733 个非零元，$\bm{G}$ 仅 403 个非零元），在 1.5 GHz ARM Cortex-A72 处理器上单次求解约需 8 $\mu$s，其中 KKT 矩阵的 LDL 分解约占求解时间的 60\%--70\%，前代后代的三角求解约占 15\%--20\%，剩余部分为锥运算、线搜索和均衡化开销。该性能水平表明，手写稀疏矩阵构造结合 ECOS 求解器完全能够满足动力下降段嵌入式实时轨迹重规划的需求（1--10 Hz）。

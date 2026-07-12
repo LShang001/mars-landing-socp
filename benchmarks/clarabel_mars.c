@@ -180,6 +180,15 @@ int main(void)
     /* ---- 结果 ---- */
     ClarabelDefaultSolution sol=clarabel_DefaultSolver_solution(solver);
     ClarabelDefaultInfo info=clarabel_DefaultSolver_info(solver);
+
+    /* 检查求解器状态 */
+    if (info.status != ClarabelSolved) {
+        printf("\n  ERROR: Clarabel 求解未达最优 (status=%d), 跳过结果输出\n", (int)info.status);
+        clarabel_DefaultSolver_free(solver);
+        free(Aj_cl); free(Ai_cl); free(Ap_cl); free(b_cl); free(q_vec); free(colc); free(P_colptr);
+        return 1;
+    }
+
     double zf=((double*)sol.x)[N*(NX+NU)+6];
     double fuel=m0v-exp(zf);
 

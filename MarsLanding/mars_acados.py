@@ -33,16 +33,11 @@ import casadi as ca
 
 # ========================== 物理参数 =========================================
 
-N  = 30; NX = 7; NU = 4
-g  = 3.7114; g_e = 9.807; m0 = 1905.0
-Isp = 225.0; T_max_co = 3.1e3
-T_min_co = 0.3 * T_max_co; T2 = 0.8 * T_max_co; nT = 6
-t_f = 81.0; dt = t_f / N
-phi   = 27.0 * np.pi / 180.0
-theta = (90.0 - 4.0) * np.pi / 180.0
-alpha = 1.0 / (Isp * g_e * np.cos(phi))
-rho1  = nT * T_min_co * np.cos(phi)
-rho2  = nT * T2       * np.cos(phi)
+import sys, os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from mars_params import (N, g_mars as g, g_earth as g_e, m0, I_sp as Isp,
+                          T_max as T_max_co, T_frac, T2_frac, n_T as nT,
+                          phi, theta, t_f, dt, alpha, rho1, rho2)
+NX = 7; NU = 4
 tan_theta = np.tan(theta)
 
 # 对数的数值安全边界

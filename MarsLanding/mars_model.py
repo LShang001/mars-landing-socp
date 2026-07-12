@@ -22,45 +22,21 @@ import casadi as ca
 import numpy as np
 import sys
 
-# ========================== 物理参数 =======================================
+# ========================== 物理参数 (从 mars_params 导入) ===============
 
-N      = 30          # 离散点数
-NX     = 7           # 状态维度: rx, ry, rz, vx, vy, vz, z(=ln m)
-NU     = 4           # 控制维度: ux, uy, uz(推力), sigma(松弛变量)
-NV     = NX + NU     # 每步变量数 = 11
-g      = 3.7114      # 火星重力 m/s²
-g_e    = 9.807       # 地球重力 m/s²
-m_0    = 1905.0      # 初始质量 kg
-I_sp   = 225.0       # 比冲 s
-T_max  = 3.1e3       # 单台发动机最大推力 N
-T_min  = 0.3 * T_max # 单台发动机最小推力 N
-T_2    = 0.8 * T_max # 推力上界 (80% 额定)
-n_T    = 6           # 发动机数量
-phi    = 27.0 * np.pi / 180.0          # 安装倾角 rad
-theta  = (90.0 - 4.0) * np.pi / 180.0  # 下滑角 86° rad
-r_0    = [1500, 0, 2000]               # 初始位置 m
-v_0    = [-75, 0, 100]                 # 初始速度 m/s
-r_f    = [0, 0, 0]                     # 终端位置
-v_f    = [0, 0, 0]                     # 终端速度
-t_f    = 81.0                          # 着陆时间 s
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from mars_params import (N, g_mars as g, g_earth as g_e, m0 as m_0,
+                          I_sp, T_max, T_frac, T2_frac, n_T,
+                          phi, theta, r0 as r_0, v0 as v_0,
+                          rf as r_f, vf as v_f, t_f,
+                          alpha, rho1 as rho_1, rho2 as rho_2, dt)
 
-# 时变参数
-alpha  = 1.0 / (I_sp * g_e * np.cos(phi))
-rho_1  = n_T * T_min * np.cos(phi)
-rho_2  = n_T * T_2   * np.cos(phi)
-dt     = t_f / N
+NX = 7; NU = 4; NV = NX + NU
 
-def z0(k):
-    """ 质量对数参考轨迹 """
-    return np.log(m_0 - alpha * rho_2 * k * dt)
-
-def mu1(k):
-    """ 线性化系数 μ₁ """
-    return rho_1 * np.exp(-z0(k))
-
-def mu2(k):
-    """ 线性化系数 μ₂ """
-    return rho_2 * np.exp(-z0(k))
+def z0(k): return np.log(m_0 - alpha * rho_2 * k * dt)
+def mu1(k): return rho_1 * np.exp(-z0(k))
+def mu2(k): return rho_2 * np.exp(-z0(k))
 
 # ========================== 符号变量构造 ===================================
 

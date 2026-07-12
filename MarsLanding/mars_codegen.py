@@ -20,17 +20,14 @@ import os
 
 # ========================== 物理参数 (同 MarsLanding.c) =====================
 
-N      = 30; NX = 7; NU = 4; NV = NX + NU
-g      = 3.7114; g_e = 9.807; m_0 = 1905.0
-I_sp   = 225.0; T_max = 3.1e3; T_min = 0.3 * T_max; T_2 = 0.8 * T_max
-n_T    = 6
-phi    = 27.0 * np.pi / 180.0
-theta  = (90.0 - 4.0) * np.pi / 180.0
-r_0    = [1500, 0, 2000]; v_0 = [-75, 0, 100]
-r_f    = [0, 0, 0]; v_f = [0, 0, 0]; t_f = 81.0
-alpha  = 1.0 / (I_sp * g_e * np.cos(phi))
-rho_1  = n_T * T_min * np.cos(phi); rho_2 = n_T * T_2 * np.cos(phi)
-dt     = t_f / N
+import sys, os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from mars_params import (N, g_mars as g, g_earth as g_e, m0 as m_0,
+                          I_sp, T_max, T_frac, T2_frac, n_T,
+                          phi, theta, r0 as r_0, v0 as v_0,
+                          rf as r_f, vf as v_f, t_f,
+                          alpha, rho1 as rho_1, rho2 as rho_2, dt)
+
+NX = 7; NU = 4; NV = NX + NU
 
 def z0(k): return np.log(m_0 - alpha * rho_2 * k * dt)
 def mu1(k): return rho_1 * np.exp(-z0(k))

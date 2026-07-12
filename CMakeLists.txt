@@ -159,12 +159,19 @@ if(LTO_SUPPORTED)
     set_property(TARGET ecos_auto PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
+# --- Clarabel C 目标 (替代 SOCP 求解器) ---
+add_executable(ecos_clarabel
+    benchmarks/clarabel_mars.c)
+target_compile_options(ecos_clarabel PRIVATE -O3 -march=native)
+target_link_libraries(ecos_clarabel PRIVATE clarabel_c m)
+# 注意: 需要 libclarabel_c.so 已安装到 /usr/local/lib
+
 # -----------------------------------------------------------------------------
 # 10. 输出目录
 # -----------------------------------------------------------------------------
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-foreach(t ecos_avx ecos_scalar ecos_auto)
+foreach(t ecos_avx ecos_scalar ecos_auto ecos_clarabel)
     set_target_properties(${t} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     )

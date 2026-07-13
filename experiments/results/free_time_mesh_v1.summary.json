@@ -1,0 +1,228 @@
+{
+  "model_id": "physical_free_tf_v1",
+  "per_mesh": [
+    {
+      "N": 20,
+      "attempts": 15,
+      "best_ecos": null,
+      "clarabel_confirmation": null,
+      "classification_counts": {
+        "solver_infeasible": 15
+      },
+      "cross_solver_fuel_delta_kg": null
+    },
+    {
+      "N": 30,
+      "attempts": 20,
+      "best_ecos": {
+        "N": 30,
+        "candidate_id": "N30_tf78.02",
+        "classification": "success",
+        "error": "",
+        "error_type": "none",
+        "fuel_kg": 399.80097818734816,
+        "manifest_sha256": "2ecc98acb3528519dd8ff07476b9ed0a384f65d19c13f173ab78879701bb8b57",
+        "metrics": {
+          "dense_path_violation": 0.0,
+          "dynamics_residual": 3.7792629789534793e-10,
+          "fuel_consistency_kg": 5.670635175647476e-06,
+          "mass_violation_kg": 0.0,
+          "soc_violation": 1.5411156795153147e-09,
+          "terminal_position_m": 2.1463928836568457e-13,
+          "terminal_velocity_mps": 1.2424324317571227e-12,
+          "thrust_envelope_violation": 1.5737908753976626e-09
+        },
+        "model_id": "physical_free_tf_v1",
+        "num_iters": 26,
+        "objective_value": 463.1219461022083,
+        "record_id": 25,
+        "schema_version": 1,
+        "search_level": 2,
+        "solver": "ECOS",
+        "solver_status": "optimal",
+        "study_id": "free_time_mesh_v1",
+        "terminal_mass_kg": 1505.1990218126518,
+        "tf_s": "78.02"
+      },
+      "clarabel_confirmation": {
+        "N": 30,
+        "candidate_id": "N30_tf78.02_clarabel",
+        "classification": "physical_violation",
+        "error": "",
+        "error_type": "none",
+        "fuel_kg": 399.800910654835,
+        "manifest_sha256": "2ecc98acb3528519dd8ff07476b9ed0a384f65d19c13f173ab78879701bb8b57",
+        "metrics": {
+          "dense_path_violation": 0.0,
+          "dynamics_residual": 2.2412783434733186e-12,
+          "fuel_consistency_kg": 4.1400369354960276e-08,
+          "mass_violation_kg": 0.0,
+          "soc_violation": 1.7863086654301696e-07,
+          "terminal_position_m": 2.2392613297407608e-15,
+          "terminal_velocity_mps": 2.6699867312376743e-14,
+          "thrust_envelope_violation": 1.2467214647315927e-06
+        },
+        "model_id": "physical_free_tf_v1",
+        "num_iters": 24,
+        "objective_value": 463.12186524489834,
+        "record_id": 24,
+        "schema_version": 1,
+        "search_level": "confirmation",
+        "solver": "Clarabel",
+        "solver_status": "optimal",
+        "study_id": "free_time_mesh_v1",
+        "terminal_mass_kg": 1505.199089345165,
+        "tf_s": "78.02"
+      },
+      "classification_counts": {
+        "physical_violation": 10,
+        "solver_infeasible": 7,
+        "success": 3
+      },
+      "cross_solver_fuel_delta_kg": null
+    },
+    {
+      "N": 40,
+      "attempts": 20,
+      "best_ecos": {
+        "N": 40,
+        "candidate_id": "N40_tf78.02",
+        "classification": "success",
+        "error": "",
+        "error_type": "none",
+        "fuel_kg": 399.3954051575374,
+        "manifest_sha256": "2ecc98acb3528519dd8ff07476b9ed0a384f65d19c13f173ab78879701bb8b57",
+        "metrics": {
+          "dense_path_violation": 0.0,
+          "dynamics_residual": 5.309815113638261e-10,
+          "fuel_consistency_kg": 4.666028416977497e-06,
+          "mass_violation_kg": 0.0,
+          "soc_violation": 5.225722077284445e-10,
+          "terminal_position_m": 1.9166165439708356e-14,
+          "terminal_velocity_mps": 1.5143422223306513e-13,
+          "thrust_envelope_violation": 4.425979582833861e-10
+        },
+        "model_id": "physical_free_tf_v1",
+        "num_iters": 28,
+        "objective_value": 462.5922641974347,
+        "record_id": 45,
+        "schema_version": 1,
+        "search_level": 2,
+        "solver": "ECOS",
+        "solver_status": "optimal",
+        "study_id": "free_time_mesh_v1",
+        "terminal_mass_kg": 1505.6045948424626,
+        "tf_s": "78.02"
+      },
+      "clarabel_confirmation": {
+        "N": 40,
+        "candidate_id": "N40_tf78.02_clarabel",
+        "classification": "physical_violation",
+        "error": "",
+        "error_type": "none",
+        "fuel_kg": 399.3953424775066,
+        "manifest_sha256": "2ecc98acb3528519dd8ff07476b9ed0a384f65d19c13f173ab78879701bb8b57",
+        "metrics": {
+          "dense_path_violation": 0.0,
+          "dynamics_residual": 1.14141404661261e-11,
+          "fuel_consistency_kg": 1.2598377452377463e-07,
+          "mass_violation_kg": 0.0,
+          "soc_violation": 2.050942509157494e-07,
+          "terminal_position_m": 4.503281421549189e-15,
+          "terminal_velocity_mps": 4.094884472715997e-15,
+          "thrust_envelope_violation": 1.1303974085663526e-06
+        },
+        "model_id": "physical_free_tf_v1",
+        "num_iters": 24,
+        "objective_value": 462.5921882761479,
+        "record_id": 44,
+        "schema_version": 1,
+        "search_level": "confirmation",
+        "solver": "Clarabel",
+        "solver_status": "optimal",
+        "study_id": "free_time_mesh_v1",
+        "terminal_mass_kg": 1505.6046575224934,
+        "tf_s": "78.02"
+      },
+      "classification_counts": {
+        "physical_violation": 9,
+        "solver_infeasible": 3,
+        "success": 8
+      },
+      "cross_solver_fuel_delta_kg": null
+    },
+    {
+      "N": 60,
+      "attempts": 20,
+      "best_ecos": {
+        "N": 60,
+        "candidate_id": "N60_tf77.98",
+        "classification": "success",
+        "error": "",
+        "error_type": "none",
+        "fuel_kg": 398.9146526735242,
+        "manifest_sha256": "2ecc98acb3528519dd8ff07476b9ed0a384f65d19c13f173ab78879701bb8b57",
+        "metrics": {
+          "dense_path_violation": 0.0,
+          "dynamics_residual": 3.6033353384423705e-10,
+          "fuel_consistency_kg": 2.9469701985362917e-06,
+          "mass_violation_kg": 0.0,
+          "soc_violation": 2.8672708651811263e-10,
+          "terminal_position_m": 1.768508207198924e-14,
+          "terminal_velocity_mps": 3.8248259018210115e-14,
+          "thrust_envelope_violation": 1.3378453900259046e-10
+        },
+        "model_id": "physical_free_tf_v1",
+        "num_iters": 26,
+        "objective_value": 461.96458273724454,
+        "record_id": 63,
+        "schema_version": 1,
+        "search_level": 2,
+        "solver": "ECOS",
+        "solver_status": "optimal",
+        "study_id": "free_time_mesh_v1",
+        "terminal_mass_kg": 1506.0853473264758,
+        "tf_s": "77.98"
+      },
+      "clarabel_confirmation": {
+        "N": 60,
+        "candidate_id": "N60_tf77.98_clarabel",
+        "classification": "success",
+        "error": "",
+        "error_type": "none",
+        "fuel_kg": 398.9146323631021,
+        "manifest_sha256": "2ecc98acb3528519dd8ff07476b9ed0a384f65d19c13f173ab78879701bb8b57",
+        "metrics": {
+          "dense_path_violation": 0.0,
+          "dynamics_residual": 1.538939895656677e-11,
+          "fuel_consistency_kg": 2.1011112494306872e-07,
+          "mass_violation_kg": 0.0,
+          "soc_violation": 8.532352069323679e-08,
+          "terminal_position_m": 1.1516999593398564e-14,
+          "terminal_velocity_mps": 7.189276081990467e-14,
+          "thrust_envelope_violation": 3.264282870674151e-07
+        },
+        "model_id": "physical_free_tf_v1",
+        "num_iters": 24,
+        "objective_value": 461.9645603449445,
+        "record_id": 62,
+        "schema_version": 1,
+        "search_level": "confirmation",
+        "solver": "Clarabel",
+        "solver_status": "optimal",
+        "study_id": "free_time_mesh_v1",
+        "terminal_mass_kg": 1506.085367636898,
+        "tf_s": "77.98"
+      },
+      "classification_counts": {
+        "physical_violation": 9,
+        "success": 11
+      },
+      "cross_solver_fuel_delta_kg": 2.0310422087277402e-05
+    }
+  ],
+  "raw_sha256": "1458c729657ad0e54e82a25b6df62a86e846a236ff1f4f7cdfbebda60fa6762a",
+  "record_count": 75,
+  "schema_version": 1,
+  "study_id": "free_time_mesh_v1"
+}

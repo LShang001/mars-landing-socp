@@ -147,5 +147,19 @@
     "source": "",
     "command": "define a versioned scenario and validation evidence for each new domain",
     "status": "future_work"
+  },
+  {
+    "claim_id": "free-time-mesh-v1",
+    "manuscript_files": ["paper/chapters/ch5_results.tex"],
+    "value": "N=20 has no feasible ECOS candidate; the best audited ECOS points for N=30, 40, 60 are 399.8010, 399.3954, 398.9147 kg; only N=60 has a passing Clarabel confirmation.",
+    "scope": "The registered four-mesh study remains mesh-sensitive and does not establish continuous-time optimality or mesh convergence. MarsLanding.c remains the independent handwritten legacy baseline.",
+    "source": "experiments/results/free_time_mesh_v1.summary.json",
+    "command": "python3 experiments/aggregate_free_time_mesh.py experiments/results/free_time_mesh_v1.jsonl experiments/results/free_time_mesh_v1.summary.json",
+    "status": "verified",
+    "source_sha256": "ed489a9b54349dc7ddd8f4452263b9c1ebb9d7a717972fa35aa198d1c27c0145",
+    "assertions": [
+      {"file": "experiments/results/free_time_mesh_v1.summary.json", "regex": "\"N\": 20[\\s\\S]*\"best_ecos\": null[\\s\\S]*\"N\": 60[\\s\\S]*398\\.914652", "purpose": "value"},
+      {"file": "paper/chapters/ch5_results.tex", "literal": "不能宣称连续时间最优或网格收敛", "purpose": "scope"}
+    ]
   }
 ]

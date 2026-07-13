@@ -315,3 +315,11 @@ pdftoppm -f 1 -l 51 -jpeg -scale-to 1600 \
 - `paper/evidence/check_claims.py` 对 quick/confirmation 都是必需项，缺失时退出码 3；CI 只接受零或一个模式参数。confirmation 必须流式处理，并执行 raw 16 MiB、gzip 4 MiB、单行 1 MiB 上限，防止无界内存使用和压缩炸弹。
 - 硬件测量结论只适用于证据记录的设备、构建和运行环境；不得把 Intel N150、树莓派或其他单机结果外推为通用性能结论。
 - `MarsLanding/MarsLanding.c` 是不可替代的独立手写参考资产。自动生成实现不得覆盖、导出或取代其 CRS→CCS 构造，只能用于一致性交叉验证。
+
+### Stage B1 自由时间研究工作流
+
+- `physical_free_tf_v1` 是与 `legacy_tf81_v1` 并列的参数化研究模型；绝不修改或替代 `MarsLanding/MarsLanding.c`。
+- 固定 `(N, tf)` 内层保持 SOCP，终端时间由预注册 Decimal 网格外层搜索；不要把整体自由时间问题称为单个 SOCP。
+- 必须同时审计节点和控制区间内部的下滑锥。历史节点模型曾出现约 27.2 m 的区间违反；区间 SOC 约束与密集审计不能省略。
+- 每个 N 独立搜索，保留 infeasible、inaccurate、error 与 physical violation；只以 ECOS/Clarabel 均通过的候选作为双求解器确认点。
+- 冻结命令：`python3 experiments/run_free_time_mesh.py --workers 4`，随后 `python3 experiments/aggregate_free_time_mesh.py experiments/results/free_time_mesh_v1.jsonl experiments/results/free_time_mesh_v1.summary.json`。生成论文图后必须编译两遍并视觉检查新图页面。

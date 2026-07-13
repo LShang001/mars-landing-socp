@@ -19,6 +19,8 @@ with open(os.path.join(DATA_DIR, 'trajectory.json')) as f:
     traj = json.load(f)
 with open(os.path.join(DATA_DIR, 'solver_comparison.json')) as f:
     solvers = json.load(f)
+STUDY_PATH = os.path.join(os.path.dirname(os.path.dirname(SCRIPT_DIR)),
+                          'experiments', 'results', 'free_time_mesh_v1.jsonl')
 
 N, dt, tf = traj['N'], traj['dt'], traj['tf']
 time = np.array(traj['time'])
@@ -337,11 +339,29 @@ def fig10():
     finish(fig)
     save(fig, 'fig10_control_time')
 
+def fig11():
+    if not os.path.isfile(STUDY_PATH): return
+    records = [json.loads(line) for line in open(STUDY_PATH, encoding='utf-8')]
+    fig, axes = plt.subplots(1, 2, figsize=(W, H))
+    for status, marker, label in [('success', 'o', 'audited ECOS point'),
+                                  ('physical_violation', 'x', 'audit violation')]:
+        subset = [r for r in records if r['solver'] == 'ECOS' and r['classification'] == status and r['fuel_kg'] is not None]
+        if subset: axes[0].scatter([float(r['tf_s']) for r in subset], [r['fuel_kg'] for r in subset], marker=marker, s=28, color=COLORS[0], label=label)
+    axes[0].set_xlabel('Terminal time (s)'); axes[0].set_ylabel('Fuel (kg)'); axes[0].legend(fontsize=6); grid(axes[0])
+    best = []
+    for N in [20, 30, 40, 60]:
+        candidates = [r for r in records if r['solver'] == 'ECOS' and r['N'] == N and r['classification'] == 'success']
+        if candidates: best.append((N, min(candidates, key=lambda r: r['fuel_kg'])))
+    if best: axes[1].plot([x[0] for x in best], [x[1]['fuel_kg'] for x in best], color=COLORS[2], marker='o', linewidth=1.6, label='best audited ECOS')
+    axes[1].set_xlabel('Mesh intervals N'); axes[1].set_ylabel('Fuel (kg)'); axes[1].set_xticks([20,30,40,60]); axes[1].legend(fontsize=7); grid(axes[1])
+    axes[1].text(0.04, 0.10, 'N=20: no feasible ECOS candidate', transform=axes[1].transAxes, fontsize=6, color=MUTED)
+    finish(fig); save(fig, 'fig11_free_time_mesh')
+
 
 # ============================================================
 if __name__ == '__main__':
     print(f'Trajectory: N={N}, dt={dt:.1f}s, tf={tf:.0f}s, fuel={traj["fuel"]:.1f}kg')
     print(f'Mass: {mass[0]:.1f} → {mass[-1]:.1f} kg\n')
     fig1(); fig2(); fig3(); fig4(); fig5()
-    fig6(); fig7(); fig8(); fig9(); fig10()
-    print('\nDone — 10 figures.')
+    fig6(); fig7(); fig8(); fig9(); fig10(); fig11()
+    print('\nDone — 11 figures.')

@@ -94,6 +94,21 @@ IPOPT      & NLP（光滑等价） & 内点滤线搜索 & \texttt{tol}=$1\times1
 
 \subsection{交叉验证}
 
+\subsection{物理修正的自由终端时间与网格审计}
+
+为避免把历史 $t_f=81$ s 手写基线的干重违反误读为物理可行结果，本文另建了物理修正的参数化研究模型（版本由 manifest 固定）。它在每个节点显式施加 $m\geq1505$ kg，并在每个控制区间的九个内部采样点施加下滑角 SOC 约束；固定 $(N,t_f)$ 的内层仍为 SOCP，终端时间由版本化 Decimal 网格外层搜索。该模型不修改、生成或替代 \texttt{MarsLanding/MarsLanding.c}；后者始终是 $N=30,t_f=81$ s 的原始、独立人工手写 CRS--CCS 参考实现。
+
+图 \ref{fig:free_time_mesh} 从 75 条原始记录重算而来。N=20 的 15 个 ECOS 候选均明确不可行。N=30、40、60 分别得到最优已审计 ECOS 候选 $(t_f,\mathrm{fuel})=(78.02\,\mathrm{s},399.8010\,\mathrm{kg})$、$(78.02\,\mathrm{s},399.3954\,\mathrm{kg})$ 和 $(77.98\,\mathrm{s},398.9147\,\mathrm{kg})$。N=60 对应的 Clarabel 复算为 $398.9146$ kg，燃料差约 $2.1\times10^{-5}$ kg，且通过预注册审计。N=30、40 的 Clarabel 点分别因推力锥/包络残差略超过 $10^{-6}$ 门槛而被归为 \texttt{physical\_violation}；它们不能作为双求解器确认点。
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=\widefig]{figures/fig11_free_time_mesh.pdf}
+\caption{物理修正自由终端时间研究。左：ECOS 候选的燃料--时间关系及分类；右：每个网格独立搜索得到的最佳已审计 ECOS 点。N=20 无可行点，且 N=30--60 的燃料仍随网格变化，故不能宣称连续时间最优或网格收敛。}
+\label{fig:free_time_mesh}
+\end{figure}
+
+这项证据纠正了早期约 $399.733$ kg 的探索值：其节点约束虽可满足，但独立密集区间审计曾发现约 27.2 m 的下滑锥违反。加入区间 SOC 约束后，该数字不再可用。当前四网格数据也尚未满足连续三网格的预注册收敛阈值；它证明了模型缺陷被发现和修正，而不是已经完成连续时间最优性证明。
+
 表 \ref{tab:cross_validation} 汇总仓库当前记录的六条数值路径，但其证据分为两个边界明确的集合。第一组是可由构建产物直接复核的三个 C ECOS 路径：手写矩阵 AVX 版、手写矩阵标量版和自动生成矩阵版。第二组是 \texttt{solver\_comparison.json} 中保存的三条 Python 路径：CVXPY+ECOS、CVXPY+Clarabel 和 CasADi+IPOPT。前两条 Python 路径求解 SOCP，IPOPT 使用 NLP 光滑等价形式。该表只陈述这些记录在燃料目标值上的数值一致性，不表示六条路径均由 quick CI 动态重跑，也不表示它们已通过全部物理残差审计。
 
 \begin{table}[tbp]

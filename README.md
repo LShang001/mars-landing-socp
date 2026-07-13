@@ -17,7 +17,7 @@
 ## 二、目录结构
 
 ```
-ecos-cn-raspberry/
+mars-landing-socp/
 ├── CMakeLists.txt              # CMake 构建（4 目标: avx,scalar,auto,clarabel）
 ├── CLAUDE.md                   # Claude Code 入口（@AGENTS.md 桥接）
 ├── AGENTS.md                   # 项目手册（13 节, 19 条编号陷阱, AI 自动加载）
@@ -190,7 +190,7 @@ min  Σ σ_k·dt  （最小化推力松弛 ≈ 最小化燃料）
 ### 编译
 
 ```bash
-cd ~/Projects/ecos-cn-raspberry
+cd ~/Projects/gnc/mars-landing-socp
 mkdir -p build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)

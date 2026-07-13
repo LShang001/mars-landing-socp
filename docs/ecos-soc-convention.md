@@ -114,9 +114,9 @@ h  = -ineq(0)                 # ⚠️ 注意负号！
 
 | 项目 | 问题类型 | 涉及的锥 |
 |------|----------|----------|
-| `ecos-cn-raspberry/MarsLanding` | 火星着陆 SOCP | 下滑角锥(q=3), 推力锥(q=4) |
-| `EVTVL_TPMPC_raspberrypi/TrajPlan` | VTVL 轨迹规划 SOCP | 推力锥(q=4) |
-| `EVTVL_TPMPC_LattePanda/TrajPlan` | VTVL 轨迹规划 SOCP | 推力锥(q=4) |
+| `mars-landing-socp/MarsLanding` | 火星着陆 SOCP | 下滑角锥(q=3), 推力锥(q=4) |
+| `vtvl-gnc-raspberrypi/TrajPlan` | VTVL 轨迹规划 SOCP | 推力锥(q=4) |
+| `vtvl-gnc-lattepanda/TrajPlan` | VTVL 轨迹规划 SOCP | 推力锥(q=4) |
 
 三个项目共享相同的 `h-Gx ∈ K` 约定和 CasADi 提取公式。
 

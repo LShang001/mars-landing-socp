@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "study_id": "free_time_mesh_v1",
+  "model_id": "physical_free_tf_v1",
+  "legacy_reference": "legacy_tf81_v1",
+  "handwritten_asset": "MarsLanding/MarsLanding.c",
+  "provenance": {
+    "protocol_version": "stage_b1_v1",
+    "parameter_source": "MarsLanding/mars_params.py",
+    "implementation_plan": "docs/superpowers/plans/2026-07-13-stage-b1-free-time-mesh.md",
+    "design_spec": "docs/superpowers/specs/2026-07-13-stage-b1-free-time-mesh-design.md"
+  },
+  "meshes": [
+    20,
+    30,
+    40,
+    60
+  ],
+  "terminal_time_search": {
+    "lower_s": "75.00",
+    "upper_s": "82.00",
+    "levels": [
+      {
+        "step_s": "0.50"
+      },
+      {
+        "step_s": "0.10"
+      },
+      {
+        "step_s": "0.02"
+      }
+    ]
+  },
+  "solvers": [
+    {
+      "name": "ECOS",
+      "role": "complete_search"
+    },
+    {
+      "name": "Clarabel",
+      "role": "confirmation"
+    }
+  ],
+  "tolerances": {
+    "audit": {
+      "terminal_position_m": 0.001,
+      "terminal_velocity_mps": 0.0001,
+      "dynamics_residual": 0.000001,
+      "soc_violation": 0.000001,
+      "mass_violation_kg": 0.001,
+      "thrust_envelope_violation": 0.000001,
+      "fuel_consistency_kg": 0.001,
+      "dense_path_violation": 0.0001
+    },
+    "cross_solver": {
+      "fuel_kg": 0.01,
+      "terminal_mass_kg": 0.01,
+      "audit_residual": 0.00001
+    },
+    "convergence": {
+      "fuel_change_kg": 0.1,
+      "tf_change_s": 0.05,
+      "consecutive_meshes": 3
+    }
+  }
+}

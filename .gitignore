@@ -7,6 +7,13 @@ obj/
 .DS_Store
 __pycache__/
 
+# Local analysis and LaTeX build artifacts
+output.json
+texput.log
+paper/*.aux
+paper/*.blg
+paper/*.log
+
 # acados generated
 MarsLanding/c_generated_code/
 MarsLanding/mars_acados.json

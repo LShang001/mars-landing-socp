@@ -1,5 +1,6 @@
 import unittest
 from unittest import mock
+from dataclasses import replace
 
 import numpy as np
 
@@ -136,6 +137,78 @@ class PhysicalModelTests(unittest.TestCase):
             result = solve_fixed_time(PhysicalModelConfig(N=4, tf_s=8.0), "ECOS")
         self.assertEqual(result.classification, "solver_error")
         self.assertIn("invalid optimal solution", result.error)
+
+    def test_audit_recomputes_node_and_dense_interval_metrics(self):
+        from experiments.physical_model import (
+            PhysicalModelConfig, audit_fixed_time_result, solve_fixed_time,
+        )
+
+        config = PhysicalModelConfig(N=30, tf_s=78.4)
+        result = solve_fixed_time(config, "ECOS")
+        metrics = audit_fixed_time_result(config, result, dense_samples_per_interval=5)
+        self.assertEqual(set(metrics), {
+            "terminal_position_m", "terminal_velocity_mps", "dynamics_residual",
+            "soc_violation", "mass_violation_kg", "thrust_envelope_violation",
+            "fuel_consistency_kg", "dense_path_violation",
+        })
+        self.assertTrue(all(np.isscalar(value) and np.isfinite(value)
+                            and value >= 0 for value in metrics.values()))
+        self.assertLess(metrics["terminal_position_m"], 1e-3)
+        self.assertLess(metrics["terminal_velocity_mps"], 1e-3)
+        self.assertLess(metrics["dynamics_residual"], 1e-5)
+        self.assertLess(metrics["mass_violation_kg"], 1e-3)
+        self.assertLess(metrics["fuel_consistency_kg"], 1e-3)
+
+    def test_audit_detects_injected_dynamics_cone_and_mass_violations(self):
+        from experiments.physical_model import (
+            PhysicalModelConfig, audit_fixed_time_result, solve_fixed_time,
+        )
+
+        config = PhysicalModelConfig(N=30, tf_s=78.4)
+        result = solve_fixed_time(config, "ECOS")
+        r, z, u = result.r.copy(), result.z.copy(), result.u.copy()
+        r[4, 0] += 2.0
+        z[5] = np.log(config.m_dry_kg - 3.0)
+        u[6] *= 100.0
+        metrics = audit_fixed_time_result(
+            config, replace(result, r=r, z=z, u=u), dense_samples_per_interval=3
+        )
+        self.assertGreater(metrics["dynamics_residual"], 1.0)
+        self.assertGreater(metrics["mass_violation_kg"], 2.9)
+        self.assertGreater(metrics["soc_violation"], 0.0)
+
+    def test_audit_rejects_wrong_shapes_and_nonoptimal_results(self):
+        from experiments.physical_model import (
+            PhysicalModelConfig, audit_fixed_time_result, solve_fixed_time,
+        )
+
+        config = PhysicalModelConfig(N=30, tf_s=81.0)
+        nonoptimal = solve_fixed_time(config, "ECOS")
+        with self.assertRaisesRegex(ValueError, "successful optimal"):
+            audit_fixed_time_result(config, nonoptimal)
+
+        good_config = PhysicalModelConfig(N=30, tf_s=78.4)
+        good = solve_fixed_time(good_config, "ECOS")
+        with self.assertRaisesRegex(ValueError, "shape"):
+            audit_fixed_time_result(good_config, replace(good, sigma=good.sigma[:-1]))
+
+    def test_audit_classification_uses_exact_metric_contract(self):
+        from experiments.physical_model import classify_audit_metrics
+
+        tolerances = {
+            "terminal_position_m": 1e-3, "terminal_velocity_mps": 1e-3,
+            "dynamics_residual": 1e-5, "soc_violation": 1e-5,
+            "mass_violation_kg": 1e-3, "thrust_envelope_violation": 1e-5,
+            "fuel_consistency_kg": 1e-3, "dense_path_violation": 1e-3,
+        }
+        metrics = {name: 0.0 for name in tolerances}
+        self.assertEqual(classify_audit_metrics("success", metrics, tolerances), "success")
+        metrics["dense_path_violation"] = 2e-3
+        self.assertEqual(
+            classify_audit_metrics("success", metrics, tolerances), "physical_violation"
+        )
+        self.assertEqual(classify_audit_metrics("solver_inaccurate", {}, tolerances),
+                         "solver_inaccurate")
 
 
 if __name__ == "__main__":

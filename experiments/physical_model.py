@@ -247,3 +247,134 @@ def solve_fixed_time(config, solver_name):
         r=values["r"], v=values["v"], z=values["z"],
         u=values["u"], sigma=values["sigma"],
     )
+
+
+AUDIT_METRIC_FIELDS = frozenset({
+    "terminal_position_m", "terminal_velocity_mps", "dynamics_residual",
+    "soc_violation", "mass_violation_kg", "thrust_envelope_violation",
+    "fuel_consistency_kg", "dense_path_violation",
+})
+
+
+def _audit_arrays(config, result):
+    expected = {
+        "r": (config.N + 1, 3), "v": (config.N + 1, 3),
+        "z": (config.N + 1,), "u": (config.N, 3), "sigma": (config.N,),
+    }
+    arrays = {}
+    for name, shape in expected.items():
+        value = getattr(result, name)
+        if value is None:
+            raise ValueError(f"{name} must have shape {shape}, got no value")
+        array = np.asarray(value, dtype=float)
+        if array.shape != shape or not np.all(np.isfinite(array)):
+            raise ValueError(f"{name} must have finite shape {shape}, got {array.shape}")
+        arrays[name] = array
+    return arrays
+
+
+def audit_fixed_time_result(config, result, dense_samples_per_interval=9):
+    """使用结果自身的网格重算节点残差和区间内路径违反量。"""
+    if result.classification != "success" or result.solver_status != cp.OPTIMAL:
+        raise ValueError("audit requires a successful optimal result")
+    if (result.model_id != config.model_id or result.N != config.N
+            or not math.isclose(result.tf_s, config.tf_s, rel_tol=0.0, abs_tol=1e-12)):
+        raise ValueError("result model and mesh must match the audit config")
+    if type(dense_samples_per_interval) is not int or dense_samples_per_interval < 2:
+        raise ValueError("dense_samples_per_interval must be an integer >= 2")
+    a = _audit_arrays(config, result)
+    r, v, z, u, sigma = a["r"], a["v"], a["z"], a["u"], a["sigma"]
+    dt = config.dt_s
+    gravity = np.array([config.g_mps2, 0.0, 0.0])
+
+    pos = r[1:] - r[:-1] - v[:-1] * dt - 0.5 * u * dt**2 + 0.5 * gravity * dt**2
+    vel = v[1:] - v[:-1] - u * dt + gravity * dt
+    mass_dyn = z[1:] - z[:-1] + config.alpha * sigma * dt
+    dynamics = max(
+        float(np.max(np.linalg.norm(pos, axis=1))),
+        float(np.max(np.linalg.norm(vel, axis=1))),
+        float(np.max(np.abs(mass_dyn))),
+    )
+
+    glide = np.linalg.norm(r[:, 1:3], axis=1) - r[:, 0] * math.tan(config.theta_rad)
+    thrust = np.linalg.norm(u, axis=1) - sigma
+    soc_violation = max(
+        float(np.max(np.maximum(glide, 0.0))),
+        float(np.max(np.maximum(thrust, 0.0))),
+    )
+    mass = np.exp(z)
+    mass_violation = max(
+        float(np.max(np.maximum(config.m_dry_kg - mass, 0.0))),
+        float(np.max(np.maximum(mass - config.m0_kg, 0.0))),
+    )
+
+    envelope_violation = 0.0
+    for k in range(config.N):
+        z_ref, mu_min, mu_max = _reference_terms(config, k)
+        lower_slack = mu_min * (z[k] - z_ref - 1.0) + sigma[k]
+        upper_residual = mu_max * (z[k] - z_ref - 1.0) + sigma[k]
+        envelope_violation = max(
+            envelope_violation, max(-float(lower_slack), 0.0),
+            max(float(upper_residual), 0.0),
+        )
+
+    dense_violation = 0.0
+    fractions = np.linspace(0.0, 1.0, dense_samples_per_interval + 1)[1:-1]
+    for k in range(config.N):
+        for fraction in fractions:
+            tau = float(fraction) * dt
+            dense_r = (r[k] + v[k] * tau + 0.5 * u[k] * tau**2
+                       - 0.5 * gravity * tau**2)
+            dense_z = z[k] - config.alpha * sigma[k] * tau
+            dense_mass = math.exp(float(dense_z))
+            dense_glide = (np.linalg.norm(dense_r[1:3])
+                           - dense_r[0] * math.tan(config.theta_rad))
+            dense_violation = max(
+                dense_violation, max(float(dense_glide), 0.0),
+                max(config.m_dry_kg - dense_mass, 0.0),
+                max(dense_mass - config.m0_kg, 0.0),
+            )
+
+    terminal_mass = math.exp(float(z[-1]))
+    fuel_from_z = config.m0_kg - terminal_mass
+    fuel_from_objective = config.m0_kg * (
+        1.0 - math.exp(-config.alpha * float(result.objective_value))
+    )
+    fuel_consistency = max(
+        abs(float(result.fuel_kg) - fuel_from_z),
+        abs(fuel_from_z - fuel_from_objective),
+    )
+    metrics = {
+        "terminal_position_m": float(np.linalg.norm(r[-1] - np.asarray(config.rf_m))),
+        "terminal_velocity_mps": float(np.linalg.norm(v[-1] - np.asarray(config.vf_mps))),
+        "dynamics_residual": dynamics,
+        "soc_violation": soc_violation,
+        "mass_violation_kg": mass_violation,
+        "thrust_envelope_violation": float(envelope_violation),
+        "fuel_consistency_kg": float(fuel_consistency),
+        "dense_path_violation": float(dense_violation),
+    }
+    if any(not math.isfinite(value) or value < 0 for value in metrics.values()):
+        raise ValueError("audit metrics must be finite nonnegative scalars")
+    return metrics
+
+
+def classify_audit_metrics(solve_classification, metrics, tolerances):
+    """结合求解状态与严格审计字段给出互斥分类。"""
+    if solve_classification != "success":
+        return solve_classification
+    if set(metrics) != AUDIT_METRIC_FIELDS or set(tolerances) != AUDIT_METRIC_FIELDS:
+        return "physical_violation"
+    try:
+        passed = all(
+            np.isscalar(metrics[name]) and not isinstance(metrics[name], bool)
+            and math.isfinite(float(metrics[name])) and float(metrics[name]) >= 0
+            and isinstance(tolerances[name], (int, float))
+            and not isinstance(tolerances[name], bool)
+            and math.isfinite(float(tolerances[name])) and float(tolerances[name]) > 0
+            and float(metrics[name]) <= float(tolerances[name])
+            for name in AUDIT_METRIC_FIELDS
+        )
+    except (TypeError, ValueError):
+        passed = False
+    return "success" if passed else "physical_violation"

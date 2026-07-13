@@ -205,10 +205,35 @@ make -j$(nproc)
 ./bin/ecos_auto        # CasADi 自动生成版
 ./bin/ecos_clarabel    # Clarabel C (Rust, 备选)
 
-# 一键验证
-bash ../ci/validate.sh          # 7 求解器（不含 acados）
-bash ../ci/validate.sh --full   # 含 acados + Monte Carlo
+# CI contract 验证（从仓库根目录运行）
+bash ci/validate.sh --quick
+bash ci/validate.sh --confirmation
 ```
+
+`--quick` 运行全部 unittest、模型一致性检查、手写资产检查、C 手写 AVX/标量/自动版
+与 Python CVXPY+ECOS/Clarabel、IPOPT 的 `400.7±0.5 kg` golden 数值回归（Clarabel C
+仅在二进制存在时运行），以及固定 8 样本的 JSONL contract smoke；每次尝试必须产生
+一行且通过 schema 校验。golden 仅确认历史目标值未漂移，不代表 dry-mass 等物理审计
+通过。CI 不以 Monte Carlo 成功率阈值
+判定 CI，因为求解失败本身也是需要完整记录的实验结果。若
+`paper/evidence/check_claims.py` 是必需资产，quick 和 confirmation 都先运行它；文件
+缺失时明确以退出码 3 失败，检查失败也直接使 CI 失败。脚本只接受零或一个模式参数，
+多余参数以退出码 2 拒绝。
+
+`--confirmation` 不重新开展 Monte Carlo 实验，只确认 `experiments/results/` 中已经冻结
+的 1000 样本证据：按 claim ledger 校验场景 manifest、原始 JSONL、gzip 和 summary 的
+SHA-256，确认 gzip 解压后与原始数据逐字节一致，逐行校验 1000 条 schema，再从 JSONL
+重算 summary 并与冻结 summary 逐字比较。权威文件或 ledger digest 尚未冻结时命令明确
+失败（缺文件退出码 3，未验证或 digest 缺失为普通校验失败），绝不伪装 PASS。校验器
+流式处理并限制 raw 16 MiB、gzip 4 MiB、单行 1 MiB，拒绝超限数据与压缩炸弹。
+
+实验场景由版本化 scenario manifest 唯一定义，包括 seed、样本数、扰动分布、求解器
+和容差；逐样本 JSONL 保留输入、失败分类与 provenance，summary 只是可重算派生物。
+论文数值陈述必须登记到 claim ledger 并由检查器绑定到 evidence。特定硬件上的耗时、
+功耗或加速比仅适用于该硬件与记录的软件环境，不得外推到其他平台。
+
+`MarsLanding/MarsLanding.c` 始终是独立、人工维护的手写 CRS→CCS 参考实现；自动生成
+路径只能交叉验证它，不能替代、覆盖或作为它的生成来源。
 
 ### 预期输出
 

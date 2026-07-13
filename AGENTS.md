@@ -302,3 +302,16 @@ pdftoppm -f 1 -l 51 -jpeg -scale-to 1600 \
 - CasADi: https://web.casadi.org/
 - CVXPY: https://www.cvxpy.org/
 - 记忆中的相关 skill: `code-review-discipline`, `mars-landing-lessons`, `github-ssh-push`
+
+---
+
+## 十五、实验证据与 CI contract
+
+- 场景必须由版本化 manifest 定义，固定 `scenario_id`、seed、样本数、扰动分布、求解器与容差；修改任一字段即视为新场景。
+- 每次尝试必须写一条通过 schema 校验的 JSONL 记录。不可行、审计失败和求解器异常都要保留原始输入与失败分类，不能从分母或证据中删除。
+- summary 是 JSONL 的可重算派生物；论文 claim 必须登记在 claim ledger，并由 `paper/evidence/check_claims.py` 绑定到冻结 evidence。
+- `bash ci/validate.sh --quick` 运行 unittest、模型/手写资产与 claim 检查、三条 C ECOS 路径和三条 Python 路径的 `400.7±0.5 kg` golden 数值回归（Clarabel C 二进制存在时也运行），以及固定 8 样本 contract smoke；smoke 只检查记录数量和 schema，不用成功率阈值卡 CI。golden 仅是目标值回归，不能替代 dry-mass 与其他物理可行性审计。
+- `bash ci/validate.sh --confirmation` 只校验 `experiments/results/` 已冻结 1000 样本的 manifest/raw/gzip/summary SHA-256、1000 条逐行 contract 与 gzip/raw 一致性，并重算 summary 比对。权威文件缺失时明确失败（退出码 3），ledger 尚未验证或 digest 缺失时校验失败，禁止跳过后宣称通过。
+- `paper/evidence/check_claims.py` 对 quick/confirmation 都是必需项，缺失时退出码 3；CI 只接受零或一个模式参数。confirmation 必须流式处理，并执行 raw 16 MiB、gzip 4 MiB、单行 1 MiB 上限，防止无界内存使用和压缩炸弹。
+- 硬件测量结论只适用于证据记录的设备、构建和运行环境；不得把 Intel N150、树莓派或其他单机结果外推为通用性能结论。
+- `MarsLanding/MarsLanding.c` 是不可替代的独立手写参考资产。自动生成实现不得覆盖、导出或取代其 CRS→CCS 构造，只能用于一致性交叉验证。

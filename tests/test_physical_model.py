@@ -158,6 +158,7 @@ class PhysicalModelTests(unittest.TestCase):
         self.assertLess(metrics["dynamics_residual"], 1e-5)
         self.assertLess(metrics["mass_violation_kg"], 1e-3)
         self.assertLess(metrics["fuel_consistency_kg"], 1e-3)
+        self.assertLess(metrics["dense_path_violation"], 1e-4)
 
     def test_audit_detects_injected_dynamics_cone_and_mass_violations(self):
         from experiments.physical_model import (

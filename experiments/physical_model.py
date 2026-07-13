@@ -30,6 +30,7 @@ class PhysicalModelConfig:
     rho_min_n: float = float(legacy.rho1)
     rho_max_n: float = float(legacy.rho2)
     theta_rad: float = float(legacy.theta)
+    path_constraint_samples: int = 9
     r0_m: tuple = field(default_factory=lambda: _DEFAULT_R0)
     v0_mps: tuple = field(default_factory=lambda: _DEFAULT_V0)
     rf_m: tuple = field(default_factory=lambda: _DEFAULT_RF)
@@ -38,6 +39,8 @@ class PhysicalModelConfig:
     def __post_init__(self):
         if type(self.N) is not int or self.N < 2:
             raise ValueError("N must be an integer >= 2")
+        if type(self.path_constraint_samples) is not int or self.path_constraint_samples < 1:
+            raise ValueError("path_constraint_samples must be a positive integer")
         scalar_fields = (
             self.tf_s, self.g_mps2, self.m0_kg, self.m_dry_kg, self.alpha,
             self.rho_min_n, self.rho_max_n, self.theta_rad,
@@ -141,6 +144,13 @@ def build_fixed_time_problem(config):
             mu_max * (z[k] - z_ref - 1.0) + sigma[k] <= 0,
             cp.SOC(sigma[k], u[k]),
         ])
+        for sample in range(1, config.path_constraint_samples + 1):
+            tau = dt * sample / (config.path_constraint_samples + 1)
+            sample_r = (r[k] + v[k] * tau + 0.5 * u[k] * tau**2
+                        - 0.5 * gravity * tau**2)
+            constraints.append(
+                cp.SOC(sample_r[0] * math.tan(config.theta_rad), sample_r[1:3])
+            )
 
     for k in range(N + 1):
         elapsed = k * dt

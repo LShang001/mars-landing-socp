@@ -1,5 +1,15 @@
 \begin{thebibliography}{10}
 
+\bibitem{nasaNssdcMars3}
+{NASA National Space Science Data Center}, ``{Mars 3} spacecraft record.'' NASA
+  NSSDC, 1971.
+\newblock Accessed 2026-07-13.
+
+\bibitem{govTianwen2021}
+{The State Council of the People's Republic of China}, ``China's tianwen-1
+  probe lands on mars.'' Official Government Web Portal, 2021.
+\newblock Accessed 2026-07-13.
+
 \bibitem{braun2007mars}
 R.~D. Braun and R.~M. Manning, ``Mars exploration entry, descent, and landing
   challenges,'' {\em Journal of Spacecraft and Rockets}, vol.~44, no.~2,
@@ -18,30 +28,25 @@ A.~Nelessen, C.~Sackier, I.~Clark, P.~Brugarolas, G.~Villar, A.~Chen,
   and L.~Lefland, ``Mars 2020 entry, descent, and landing system overview,'' in
   {\em 2019 {IEEE} Aerospace Conference}, pp.~1--20, 2019.
 
-\bibitem{ye2021tianwen}
-P.~Ye, Z.~Sun, W.~Rao, and L.~Meng, ``Mission overview and key technologies of
-  the first mars probe of {China},'' {\em Science China Technological
-  Sciences}, vol.~60, no.~5, pp.~649--657, 2017.
-
 \bibitem{acikmese2007lossless}
 B.~A{\c{c}}{\i}kme{\c{s}}e and S.~R. Ploen, ``Convex programming approach to
   powered descent guidance for {Mars} landing,'' {\em Journal of Guidance,
   Control, and Dynamics}, vol.~30, no.~5, pp.~1353--1366, 2007.
-
-\bibitem{benson2003direct}
-C.~R. Hargraves and S.~W. Paris, ``Direct trajectory optimization using
-  nonlinear programming and collocation,'' {\em Journal of Guidance, Control,
-  and Dynamics}, vol.~10, no.~4, pp.~338--342, 1987.
 
 \bibitem{el2009legendre}
 G.~N. Elnagar, M.~A. Kazemi, and M.~Razzaghi, ``The pseudospectral legendre
   method for discretizing optimal control problems,'' {\em {IEEE} Transactions
   on Automatic Control}, vol.~40, no.~10, pp.~1793--1796, 1995.
 
+\bibitem{benson2003direct}
+C.~R. Hargraves and S.~W. Paris, ``Direct trajectory optimization using
+  nonlinear programming and collocation,'' {\em Journal of Guidance, Control,
+  and Dynamics}, vol.~10, no.~4, pp.~338--342, 1987.
+
 \bibitem{blackmore2012lossless}
-L.~Blackmore, B.~A{\c{c}}{\i}kme{\c{s}}e, and {John M. Carson III}, ``Lossless
-  convexification of control constraints for a class of nonlinear optimal
-  control problems,'' {\em Systems \& Control Letters}, vol.~61, no.~8,
+L.~Blackmore, B.~A{\c{c}}{\i}kme{\c{s}}e, and {Carson, John M., III},
+  ``Lossless convexification of control constraints for a class of nonlinear
+  optimal control problems,'' {\em Systems \& Control Letters}, vol.~61, no.~8,
   pp.~863--870, 2012.
 
 \bibitem{liu2017trajectory}
@@ -55,10 +60,11 @@ L.~Blackmore, B.~A{\c{c}}{\i}kme{\c{s}}e, and D.~P. Scharf,
   vol.~33, no.~4, pp.~1161--1171, 2010.
 
 \bibitem{acikmese2013}
-B.~A{\c{c}}{\i}kme{\c{s}}e, {John M. Carson III}, and L.~Blackmore, ``Lossless
-  convexification of nonconvex control bound and pointing constraints of the
-  soft landing optimal control problem,'' {\em {IEEE} Transactions on Control
-  Systems Technology}, vol.~21, no.~6, pp.~2104--2113, 2013.
+B.~A{\c{c}}{\i}kme{\c{s}}e, {Carson, John M., III}, and L.~Blackmore,
+  ``Lossless convexification of nonconvex control bound and pointing
+  constraints of the soft landing optimal control problem,'' {\em {IEEE}
+  Transactions on Control Systems Technology}, vol.~21, no.~6, pp.~2104--2113,
+  2013.
 
 \bibitem{boyd2004convex}
 S.~Boyd and L.~Vandenberghe, {\em Convex Optimization}.
@@ -93,11 +99,5 @@ J.~A.~E. Andersson, J.~Gillis, G.~Horn, J.~B. Rawlings, and M.~Diehl,
 S.~Diamond and S.~Boyd, ``{CVXPY}: {A} {P}ython-embedded modeling language for
   convex optimization,'' {\em Journal of Machine Learning Research}, vol.~17,
   no.~83, pp.~1--5, 2016.
-
-\bibitem{verschueren2022acados}
-R.~Verschueren, G.~Frison, D.~Kouzoupis, J.~Frey, N.~van Duijkeren, A.~Zanelli,
-  B.~Novoselnik, T.~Albin, R.~Quirynen, and M.~Diehl, ``{acados}---a modular
-  open-source framework for fast embedded optimal control,'' {\em Mathematical
-  Programming Computation}, vol.~14, no.~1, pp.~147--183, 2022.
 
 \end{thebibliography}

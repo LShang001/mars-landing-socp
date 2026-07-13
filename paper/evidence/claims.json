@@ -1,0 +1,151 @@
+[
+  {
+    "claim_id": "nominal-fuel",
+    "manuscript_files": ["paper/chapters/ch5_results.tex"],
+    "value": "400.7278765 kg fuel; terminal mass 1504.2721235 kg; dry-mass violation 0.7278765 kg",
+    "scope": "The nominal numerical objective agrees at 400.7 kg, but the audited solution violates the 1505 kg dry-mass lower bound and is not a physically verified solution.",
+    "source": "paper/evidence/nominal_solution_audit.json",
+    "command": "python3 -m unittest tests.test_solution_audit.SolutionAuditTests.test_solve_cvxpy_return_full_preserves_default_api_and_exposes_trajectory -v",
+    "status": "verified",
+    "source_sha256": "33d847cdbaa07a03cacf4b2b8ad99f64484e1e020ac0107e14f0ef31e9d42f52",
+    "assertions": [
+      {"file": "paper/evidence/nominal_solution_audit.json", "regex": "\"fuel_kg\": 400\\.7278765[\\s\\S]*\"mass_bound_violation_kg\": 0\\.7278765", "purpose": "value"},
+      {"file": "paper/chapters/ch5_results.tex", "literal": "不能表述为已满足全部物理约束的确认性燃料结果", "purpose": "scope"}
+    ]
+  },
+  {
+    "claim_id": "c-native-agreement",
+    "manuscript_files": ["paper/chapters/ch5_results.tex"],
+    "value": "ecos_avx, ecos_scalar, and ecos_auto each report 400.7 kg",
+    "scope": "Three C ECOS executable paths only; numerical objective agreement, not physical feasibility or end-to-end validation.",
+    "source": "paper/evidence/c_native_nominal.json",
+    "command": "cmake --build build -j4 && ./build/bin/ecos_avx && ./build/bin/ecos_scalar && ./build/bin/ecos_auto",
+    "status": "verified",
+    "source_sha256": "cdc51be920ebb6bb5e0fc39582185f766c8da5961b1e75c51d228ef22a0c2756",
+    "assertions": [
+      {"file": "paper/evidence/c_native_nominal.json", "regex": "\"target\": \"ecos_avx\"[\\s\\S]*\"target\": \"ecos_scalar\"[\\s\\S]*\"target\": \"ecos_auto\"", "purpose": "scope"},
+      {"file": "paper/chapters/ch5_results.tex", "literal": "三个 C 可执行路径当前均报告 400.7 kg", "purpose": "value"}
+    ]
+  },
+  {
+    "claim_id": "python-comparison",
+    "manuscript_files": ["paper/chapters/ch5_results.tex"],
+    "value": "CVXPY+ECOS, CVXPY+Clarabel, and CasADi+IPOPT are recorded at 400.7 kg",
+    "scope": "The three Python paths present in solver_comparison.json only; numerical objective agreement, not physical feasibility.",
+    "source": "paper/data/solver_comparison.json",
+    "command": "python3 -c \"import json; d=json.load(open('paper/data/solver_comparison.json')); assert len(d)==3 and all(x['fuel_kg']==400.7 for x in d)\"",
+    "status": "verified",
+    "source_sha256": "1a07eac6ec168412e78f113b772d885eff7039dec4f6a17c4ca1fe9907ec6b25",
+    "assertions": [
+      {"file": "paper/data/solver_comparison.json", "regex": "CVXPY\\+ECOS[\\s\\S]*CVXPY\\+Clarabel[\\s\\S]*CasADi\\+IPOPT", "purpose": "scope"},
+      {"file": "paper/chapters/ch5_results.tex", "literal": "Python comparison 文件中的三条记录也均为 400.7 kg", "purpose": "value"}
+    ]
+  },
+  {
+    "claim_id": "n150-timing-scope",
+    "manuscript_files": ["paper/chapters/ch1_intro.tex", "paper/chapters/ch5_results.tex", "paper/chapters/ch6_embedded.tex", "paper/chapters/ch7_conclusion.tex"],
+    "value": "Release ecos_avx reports a 7.361 ms mean CPU time over 1000 ECOS_solve calls on the Intel N150 project host.",
+    "scope": "CPU time after setup; no raw per-iteration samples, p99, WCET, end-to-end, or target-hardware evidence.",
+    "source": "paper/evidence/n150_solve_report.json",
+    "command": "./build/bin/ecos_avx > /tmp/ecos_avx_n150_stdout.txt 2>&1",
+    "status": "verified",
+    "source_sha256": "8c8ae1bedf2702016fc86484e32a423652985c90c862470ecbdf3709c865a0f2",
+    "assertions": [
+      {"file": "paper/evidence/n150_solve_report.json", "regex": "\"measured_runs\": 1000[\\s\\S]*\"mean_cpu_time_ms\": 7\\.361[\\s\\S]*no raw per-iteration samples", "purpose": "scope"},
+      {"file": "paper/chapters/ch1_intro.tex", "literal": "均值为 7.361 ms", "purpose": "value"},
+      {"file": "paper/chapters/ch5_results.tex", "literal": "不能据此报告 p99、最大值或 WCET", "purpose": "scope"},
+      {"file": "paper/chapters/ch6_embedded.tex", "literal": "均值为 7.361 ms", "purpose": "value"},
+      {"file": "paper/chapters/ch7_conclusion.tex", "literal": "不支持 p99 或 WCET", "purpose": "scope"}
+    ]
+  },
+  {
+    "claim_id": "scenario-manifest",
+    "manuscript_files": ["paper/chapters/ch5_results.tex"],
+    "value": "near_nominal_v1, seed 42, 1000 samples, x/z position half-width 200 m and x/z velocity half-width 20 m/s",
+    "scope": "Canonical deterministic scenario definition; y components are unperturbed.",
+    "source": "experiments/scenarios/near_nominal_v1.json",
+    "command": "python3 -m unittest tests.test_scenario_loader -v",
+    "status": "verified",
+    "source_sha256": "c985c50f262eec4fbb6afdeda589cf2f38839c3fc90153430700f9fd56c14a76",
+    "assertions": [
+      {"file": "experiments/scenarios/near_nominal_v1.json", "regex": "\"seed\": 42[\\s\\S]*\"sample_count\": 1000", "purpose": "value"},
+      {"file": "paper/chapters/ch5_results.tex", "literal": "两个 $y$ 分量保持不变", "purpose": "scope"}
+    ]
+  },
+  {
+    "claim_id": "mc-status",
+    "manuscript_files": ["paper/chapters/ch5_results.tex"],
+    "value": "1000 attempted; 483 success, 363 physical_violation, 153 solver_infeasible, 1 solver_error; audited success rate 0.483.",
+    "scope": "Fuel statistics are conditional on 483 audited successes; one solver_error is unresolved and this is not a robustness pass.",
+    "source": "experiments/results/near_nominal_v1.summary.json",
+    "command": "python3 experiments/aggregate_results.py experiments/results/near_nominal_v1.jsonl experiments/results/near_nominal_v1.summary.json",
+    "status": "verified",
+    "source_sha256": "afc6249877f30957519608e156dd4a452d697652bb5c73aed86d3cb034176bae",
+    "manifest_sha256": "c985c50f262eec4fbb6afdeda589cf2f38839c3fc90153430700f9fd56c14a76",
+    "raw_sha256": "0e8acef4695f6d7d6a54fb04b5b6dabdf063e04b9e7cbc234a64387589319a47",
+    "gzip_sha256": "7fbe7e4eda2d06a26d6a9bebbcabb6c13551477f485e3e14e905b34814287760",
+    "assertions": [
+      {"file": "experiments/results/near_nominal_v1.summary.json", "regex": "\"physical_violation\": 363[\\s\\S]*\"solver_error\": 1[\\s\\S]*\"solver_infeasible\": 153[\\s\\S]*\"success\": 483", "purpose": "value"},
+      {"file": "paper/chapters/ch5_results.tex", "literal": "不能表述为总体燃料分布或鲁棒性通过", "purpose": "scope"}
+    ]
+  },
+  {
+    "claim_id": "handwritten-auto-roles",
+    "manuscript_files": ["paper/chapters/ch5_results.tex"],
+    "value": "MarsLanding.c is an independent manually maintained reference; MarsLandingAuto.c consumes CasADi-generated CCS data.",
+    "scope": "The parameterized generator does not replace or generate the handwritten CRS-to-CCS implementation.",
+    "source": "docs/provenance/handwritten-matrix.md",
+    "command": "python3 MarsLanding/check_model_consistency.py",
+    "status": "verified",
+    "source_sha256": "44b1fce6cc772a48be727bc5c1b6c62c28d57b1b2bb508092ec511a28a76283b",
+    "assertions": [
+      {"file": "docs/provenance/handwritten-matrix.md", "literal": "原始、独立实现的 SOCP 手写矩阵资产", "purpose": "scope"},
+      {"file": "paper/chapters/ch5_results.tex", "literal": "C 手写版与自动生成版保持独立", "purpose": "value"}
+    ]
+  },
+  {
+    "claim_id": "deployment-scope",
+    "manuscript_files": ["paper/chapters/ch7_conclusion.tex"],
+    "value": "Bare-metal and flight-control deployment claims are withdrawn; the current artifact is a desktop Linux C+ECOS prototype.",
+    "scope": "Target-hardware cross-compilation, static memory, WCET, and closed-loop integration remain future work.",
+    "source": "",
+    "command": "bash ci/validate.sh --quick",
+    "status": "superseded"
+  },
+  {
+    "claim_id": "precision-attribution",
+    "manuscript_files": ["paper/chapters/ch1_intro.tex", "paper/chapters/ch5_results.tex", "paper/chapters/ch7_conclusion.tex"],
+    "value": "The recorded f32/f64 fuel difference comes from configurations with different tolerances.",
+    "scope": "It cannot be attributed to floating-point precision without a controlled same-configuration experiment.",
+    "source": "",
+    "command": "compile and run matched-tolerance f32/f64 benchmarks with residual audit",
+    "status": "future_work"
+  },
+  {
+    "claim_id": "log-mass-local-conversion",
+    "manuscript_files": ["paper/chapters/ch4_sparse_ecos.tex", "paper/chapters/ch5_results.tex", "paper/chapters/ch6_embedded.tex", "paper/chapters/ch7_conclusion.tex"],
+    "value": "dm/dz=m gives an approximately 1500-fold local conversion from z error to mass error near 1500 kg.",
+    "scope": "This is not evidence of the same amplification in automatic differentiation, gradients, or Hessians.",
+    "source": "",
+    "command": "design and run a controlled sensitivity experiment before making derivative claims",
+    "status": "future_work"
+  },
+  {
+    "claim_id": "avx-causality",
+    "manuscript_files": ["paper/chapters/ch5_results.tex", "paper/chapters/ch7_conclusion.tex"],
+    "value": "The current scalar and AVX/FMA build records differ by about 2.4 percent.",
+    "scope": "Memory-bandwidth or instruction-level causality requires controlled frequency and hardware-counter evidence.",
+    "source": "",
+    "command": "collect fixed-frequency cache, memory, and instruction performance counters",
+    "status": "future_work"
+  },
+  {
+    "claim_id": "cross-domain-generality",
+    "manuscript_files": ["paper/chapters/ch7_conclusion.tex"],
+    "value": "Applicability beyond the Mars landing model is not established.",
+    "scope": "Each new vehicle, dynamics model, and constraint set requires separate validation.",
+    "source": "",
+    "command": "define a versioned scenario and validation evidence for each new domain",
+    "status": "future_work"
+  }
+]

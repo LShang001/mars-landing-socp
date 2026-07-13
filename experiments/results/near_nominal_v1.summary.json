@@ -1,0 +1,25 @@
+{
+  "attempted": 1000,
+  "classification_counts": {
+    "physical_violation": 363,
+    "solver_error": 1,
+    "solver_infeasible": 153,
+    "success": 483
+  },
+  "fuel_kg": {
+    "count": 483,
+    "max": 399.9547244292921,
+    "mean": 383.8377679589953,
+    "min": 360.21576888446793,
+    "sample_std": 9.52401057392018
+  },
+  "input_sha256": "0e8acef4695f6d7d6a54fb04b5b6dabdf063e04b9e7cbc234a64387589319a47",
+  "manifest_sha256": "c985c50f262eec4fbb6afdeda589cf2f38839c3fc90153430700f9fd56c14a76",
+  "scenario_id": "near_nominal_v1",
+  "success_rate": 0.483,
+  "success_rate_wilson_95": {
+    "lower": 0.45215246974959655,
+    "upper": 0.5139776400389123
+  },
+  "successful": 483
+}

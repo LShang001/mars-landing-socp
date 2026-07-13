@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "evidence_id": "c_native_nominal_2026-07-13",
+  "git_commit": "df18f738a7aeaf873f5ef98a10151a13e58c3cdf",
+  "platform": "Linux 6.17.0-1028-oem x86_64",
+  "command": "cmake --build build -j4 && ./build/bin/ecos_avx && ./build/bin/ecos_scalar && ./build/bin/ecos_auto",
+  "scope": "Three C ECOS executable paths; reported one-decimal fuel objective and solver status only.",
+  "results": [
+    {
+      "target": "ecos_avx",
+      "executable_sha256": "c92e1c6b3559dba5e502df1e0cc51a6996a6d08ee7030bf4a472fd5ac03dfc2e",
+      "solver_status": "optimal",
+      "fuel_kg": 400.7
+    },
+    {
+      "target": "ecos_scalar",
+      "executable_sha256": "dd7fdd4715ab2292697fde91fe2d51ad512d08f0990b1e56c4e3eb08878622d7",
+      "solver_status": "optimal",
+      "fuel_kg": 400.7
+    },
+    {
+      "target": "ecos_auto",
+      "executable_sha256": "f8205861ab4402ce85f464da95b60f35b3e04d217925601efb59de6a6a03edb4",
+      "solver_status": "optimal",
+      "fuel_kg": 400.7
+    }
+  ]
+}

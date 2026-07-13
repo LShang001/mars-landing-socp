@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "evidence_id": "nominal_solution_audit_2026-07-13",
+  "git_commit": "df18f738a7aeaf873f5ef98a10151a13e58c3cdf",
+  "command": "python3 -m unittest tests.test_solution_audit.SolutionAuditTests.test_solve_cvxpy_return_full_preserves_default_api_and_exposes_trajectory -v",
+  "solver": "CVXPY+ECOS",
+  "solver_status": "optimal",
+  "classification": "physical_violation",
+  "fuel_kg": 400.7278765,
+  "terminal_mass_kg": 1504.2721235,
+  "dry_mass_kg": 1505.0,
+  "mass_bound_violation_kg": 0.7278765,
+  "scope": "Nominal objective and dry-mass audit; this is not a physically verified solution."
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "evidence_id": "n150_ecos_avx_mean_2026-07-13",
+  "git_commit": "df18f738a7aeaf873f5ef98a10151a13e58c3cdf",
+  "platform": "Linux 6.17.0-1028-oem x86_64; Intel N150 project host",
+  "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "build_type": "Release",
+  "target": "ecos_avx",
+  "executable_sha256": "c92e1c6b3559dba5e502df1e0cc51a6996a6d08ee7030bf4a472fd5ac03dfc2e",
+  "command": "./build/bin/ecos_avx > /tmp/ecos_avx_n150_stdout.txt 2>&1",
+  "stdout_sha256": "65f3d2cde63b384540d2389a5003079e803bedda8800f8e8076a89823940f6ef",
+  "measured_runs": 1000,
+  "total_cpu_time_ms": 7360.6,
+  "mean_cpu_time_ms": 7.361,
+  "timing_scope": "ECOS_solve CPU time measured by clock() after matrix assembly and ECOS_setup",
+  "limitations": [
+    "no raw per-iteration samples",
+    "no percentile, p99, worst-case, or WCET evidence",
+    "not end-to-end replanning latency",
+    "not transferable to ARM, MCU, RTOS, or flight hardware"
+  ]
+}

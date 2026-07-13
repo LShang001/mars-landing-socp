@@ -44,7 +44,7 @@
 - Test: `tests/test_literature_matrix.py`
 - Modify: `paper/refs.bib`
 
-- [ ] **Step 1: Write failing literature-matrix tests**
+- [x] **Step 1: Write failing literature-matrix tests**
 
 ```python
 # tests/test_literature_matrix.py
@@ -79,13 +79,13 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run the test and confirm the missing research package**
+- [x] **Step 2: Run the test and confirm the missing research package**
 
 Run: `python3 -m unittest tests.test_literature_matrix -v`
 
 Expected: import failure for `research.literature.check_literature`.
 
-- [ ] **Step 3: Implement the protocol and validator**
+- [x] **Step 3: Implement the protocol and validator**
 
 The protocol must record the search date, databases, exact query strings, year window, inclusion/exclusion rules, backward/forward citation procedure, duplicate handling, and update cadence. Search at least these themes independently: lossless convexification for powered descent; successive/ sequential convex programming for guidance; warm-start and factorization reuse in conic optimization; embedded real-time convex optimization; robust/chance-constrained powered descent; closed-loop and HIL planetary landing guidance.
 
@@ -115,7 +115,7 @@ def validate_rows(rows):
 
 The CLI reads the CSV, validates it, verifies every `source_id` exists in `paper/refs.bib`, and exits nonzero on any missing or duplicate source.
 
-- [ ] **Step 4: Conduct and verify the first literature pass**
+- [x] **Step 4: Conduct and verify the first literature pass**
 
 Populate the matrix with at least 40 verified sources, including foundational work and publications from 2021 through the search date. For each candidate research contribution, record the nearest prior method, its evaluation scope, and the precise unresolved gap. Add only verified bibliographic metadata to `paper/refs.bib`.
 
@@ -123,14 +123,14 @@ Run: `python3 -m unittest tests.test_literature_matrix -v && python3 research/li
 
 Expected: tests pass; all rows have traceable identities and matching BibTeX entries.
 
-- [ ] **Step 5: Commit the research map**
+- [x] **Step 5: Commit the research map**
 
 ```bash
 git add research/literature paper/refs.bib tests/test_literature_matrix.py
 git commit -m "research: 建立轨迹优化系统文献证据矩阵"
 ```
 
-- [ ] **Step 6: Use the matrix as an algorithm gate**
+- [x] **Step 6: Use the matrix as an algorithm gate**
 
 Before any Stage B algorithm experiment, add a row to its plan stating the nearest three prior methods, the new hypothesis, differentiating mechanism, comparison baseline, and falsification criterion. Reject a candidate contribution when the literature matrix already contains the same mechanism and evidence scope without a defensible distinction.
 
@@ -141,7 +141,7 @@ Before any Stage B algorithm experiment, add a row to its plan stating the neare
 - Create: `experiments/contracts.py`
 - Test: `tests/test_experiment_contracts.py`
 
-- [ ] **Step 1: Write failing contract tests**
+- [x] **Step 1: Write failing contract tests**
 
 ```python
 # tests/test_experiment_contracts.py
@@ -190,13 +190,13 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run the tests and confirm the import failure**
+- [x] **Step 2: Run the tests and confirm the import failure**
 
 Run: `python3 -m unittest tests.test_experiment_contracts -v`
 
 Expected: `ModuleNotFoundError: No module named 'experiments.contracts'`.
 
-- [ ] **Step 3: Implement strict contracts**
+- [x] **Step 3: Implement strict contracts**
 
 ```python
 # experiments/contracts.py
@@ -242,13 +242,13 @@ def validate_result(value):
 
 Create an empty `experiments/__init__.py`.
 
-- [ ] **Step 4: Run the contract tests**
+- [x] **Step 4: Run the contract tests**
 
 Run: `python3 -m unittest tests.test_experiment_contracts -v`
 
 Expected: 3 tests pass.
 
-- [ ] **Step 5: Commit the contracts**
+- [x] **Step 5: Commit the contracts**
 
 ```bash
 git add experiments/__init__.py experiments/contracts.py tests/test_experiment_contracts.py
@@ -262,7 +262,7 @@ git commit -m "feat: 定义实验场景与结果契约"
 - Create: `experiments/scenario_loader.py`
 - Test: `tests/test_scenario_loader.py`
 
-- [ ] **Step 1: Write deterministic sampling tests**
+- [x] **Step 1: Write deterministic sampling tests**
 
 ```python
 # tests/test_scenario_loader.py
@@ -293,13 +293,13 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run the test and confirm the missing loader**
+- [x] **Step 2: Run the test and confirm the missing loader**
 
 Run: `python3 -m unittest tests.test_scenario_loader -v`
 
 Expected: import failure for `experiments.scenario_loader`.
 
-- [ ] **Step 3: Add the canonical manifest and loader**
+- [x] **Step 3: Add the canonical manifest and loader**
 
 ```json
 {
@@ -353,13 +353,13 @@ def sample_inputs(scenario, count=None):
     return samples
 ```
 
-- [ ] **Step 4: Run deterministic loader tests**
+- [x] **Step 4: Run deterministic loader tests**
 
 Run: `python3 -m unittest tests.test_scenario_loader -v`
 
 Expected: 2 tests pass.
 
-- [ ] **Step 5: Commit the scenario definition**
+- [x] **Step 5: Commit the scenario definition**
 
 ```bash
 git add experiments/scenarios/near_nominal_v1.json experiments/scenario_loader.py tests/test_scenario_loader.py
@@ -373,7 +373,7 @@ git commit -m "feat: 固化近标称蒙特卡洛场景"
 - Test: `tests/test_solution_audit.py`
 - Modify: `MarsLanding/mars_solve.py`
 
-- [ ] **Step 1: Write audit classification tests**
+- [x] **Step 1: Write audit classification tests**
 
 ```python
 # tests/test_solution_audit.py
@@ -408,13 +408,13 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run the audit tests and confirm failure**
+- [x] **Step 2: Run the audit tests and confirm failure**
 
 Run: `python3 -m unittest tests.test_solution_audit -v`
 
 Expected: import failure for `experiments.solution_audit`.
 
-- [ ] **Step 3: Implement classification and metric calculation**
+- [x] **Step 3: Implement classification and metric calculation**
 
 Implement `classify_metrics(status, metrics, tolerances)` with these exact rules:
 
@@ -439,7 +439,7 @@ def classify_metrics(status, metrics, tolerances):
 
 Add `compute_metrics(solution)` that consumes NumPy arrays `r`, `v`, `z`, `u`, and `sigma`, recomputes all discrete dynamics with `mars_params`, evaluates `max(0, ||[ry,rz]||-rx*tan(theta))`, `max(0, ||u||-sigma)`, terminal norms, and dry/initial mass violations. Modify `solve_cvxpy` through a new optional `return_full=False` argument; when true, return a dictionary containing these arrays and ECOS iteration metadata without changing the existing default return tuple.
 
-- [ ] **Step 4: Run audit and existing solver checks**
+- [x] **Step 4: Run audit and existing solver checks**
 
 Run: `python3 -m unittest tests.test_solution_audit -v`
 
@@ -449,7 +449,7 @@ Run: `bash ci/validate.sh`
 
 Expected: all existing solver checks pass at approximately 400.7 kg.
 
-- [ ] **Step 5: Commit solution auditing**
+- [x] **Step 5: Commit solution auditing**
 
 ```bash
 git add experiments/solution_audit.py tests/test_solution_audit.py MarsLanding/mars_solve.py
@@ -464,7 +464,7 @@ git commit -m "feat: 审计轨迹约束与终端残差"
 - Test: `tests/test_monte_carlo_runner.py`
 - Modify: `MarsLanding/mars_robustness.py`
 
-- [ ] **Step 1: Write a runner test using a fake solver**
+- [x] **Step 1: Write a runner test using a fake solver**
 
 ```python
 # tests/test_monte_carlo_runner.py
@@ -497,13 +497,13 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run the runner test and confirm failure**
+- [x] **Step 2: Run the runner test and confirm failure**
 
 Run: `python3 -m unittest tests.test_monte_carlo_runner -v`
 
 Expected: import failure for `experiments.run_monte_carlo`.
 
-- [ ] **Step 3: Implement atomic JSONL execution**
+- [x] **Step 3: Implement atomic JSONL execution**
 
 `run_experiment(manifest_path, output_path, count, solver)` must load and hash the manifest, generate samples, reject an existing output path, write each validated result to `output_path.with_suffix('.jsonl.tmp')`, flush after each record, and rename the temporary file only after all attempts finish. The CLI must be:
 
@@ -518,7 +518,7 @@ python3 -m experiments.run_monte_carlo \
 
 Replace the implementation of `mars_robustness.monte_carlo(n_samples)` with a compatibility wrapper that runs the canonical manifest into a temporary JSONL file and returns the aggregated success rate and conditional mean fuel. Keep `sensitivity()` independent.
 
-- [ ] **Step 4: Run unit tests and an 8-sample smoke experiment**
+- [x] **Step 4: Run unit tests and an 8-sample smoke experiment**
 
 Run: `python3 -m unittest tests.test_monte_carlo_runner -v`
 
@@ -528,7 +528,7 @@ Run: `python3 -m experiments.run_monte_carlo --scenario experiments/scenarios/ne
 
 Expected: 8 valid JSON lines, including records for failures.
 
-- [ ] **Step 5: Commit the runner and adapter**
+- [x] **Step 5: Commit the runner and adapter**
 
 ```bash
 git add experiments/ecos_adapter.py experiments/run_monte_carlo.py \
@@ -542,7 +542,7 @@ git commit -m "feat: 记录逐样本蒙特卡洛证据"
 - Create: `experiments/aggregate_results.py`
 - Test: `tests/test_aggregate_results.py`
 
-- [ ] **Step 1: Write exact aggregation tests**
+- [x] **Step 1: Write exact aggregation tests**
 
 ```python
 # tests/test_aggregate_results.py
@@ -573,17 +573,17 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run the aggregation test and confirm failure**
+- [x] **Step 2: Run the aggregation test and confirm failure**
 
 Run: `python3 -m unittest tests.test_aggregate_results -v`
 
 Expected: import failure for `experiments.aggregate_results`.
 
-- [ ] **Step 3: Implement aggregation**
+- [x] **Step 3: Implement aggregation**
 
 Implement `aggregate(records)` with attempted/successful counts, classification counts, success rate, 95% Wilson interval using `z=1.959963984540054`, and conditional successful fuel count/mean/sample standard deviation/min/max. The CLI reads JSONL, writes canonical sorted/indented JSON, embeds the input SHA-256 digest, and refuses to overwrite an existing summary.
 
-- [ ] **Step 4: Verify aggregation and deterministic serialization**
+- [x] **Step 4: Verify aggregation and deterministic serialization**
 
 Run: `python3 -m unittest tests.test_aggregate_results -v`
 
@@ -593,7 +593,7 @@ Run: `python3 -m experiments.aggregate_results /tmp/near_nominal_smoke.jsonl /tm
 
 Expected: summary reports `attempted: 8`, a Wilson interval, and explicit failure classifications.
 
-- [ ] **Step 5: Commit statistical aggregation**
+- [x] **Step 5: Commit statistical aggregation**
 
 ```bash
 git add experiments/aggregate_results.py tests/test_aggregate_results.py
@@ -607,7 +607,7 @@ git commit -m "feat: 汇总鲁棒性统计与失败分类"
 - Modify: `MarsLanding/check_model_consistency.py`
 - Test: `tests/test_handwritten_asset.py`
 
-- [ ] **Step 1: Write build-graph protection tests**
+- [x] **Step 1: Write build-graph protection tests**
 
 ```python
 # tests/test_handwritten_asset.py
@@ -640,25 +640,25 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run the protection tests and confirm failure**
+- [x] **Step 2: Run the protection tests and confirm failure**
 
 Run: `python3 -m unittest tests.test_handwritten_asset -v`
 
 Expected: import failure for `validate_handwritten_asset`.
 
-- [ ] **Step 3: Implement semantic protection and provenance documentation**
+- [x] **Step 3: Implement semantic protection and provenance documentation**
 
 `validate_handwritten_asset(cmake, source)` must require both `MarsLanding/MarsLanding.c` and `MarsLanding/CRM2CCM.c` in `USER_SOURCES`, require `ecos_avx` and `ecos_scalar` to derive from `ALL_SOURCES`, require `ecos_auto` to derive from `MarsLandingAuto.c`, and reject `MarsLandingAutoData.h` or generated-data includes in the handwritten source. Call it from `main()` and report every failure.
 
 Document authorship, CRS construction, CRS→CCS conversion, allowed validation, prohibited replacement, and review requirements in `docs/provenance/handwritten-matrix.md`. Do not use a source hash because legitimate manual maintenance must remain possible.
 
-- [ ] **Step 4: Run protection and model checks**
+- [x] **Step 4: Run protection and model checks**
 
 Run: `python3 -m unittest tests.test_handwritten_asset -v && python3 MarsLanding/check_model_consistency.py`
 
 Expected: 2 tests pass and the model consistency checker succeeds.
 
-- [ ] **Step 5: Commit the asset guard**
+- [x] **Step 5: Commit the asset guard**
 
 ```bash
 git add docs/provenance/handwritten-matrix.md MarsLanding/check_model_consistency.py tests/test_handwritten_asset.py
@@ -672,7 +672,7 @@ git commit -m "test: 保护原始手写矩阵实现"
 - Create: `experiments/benchmark_host.py`
 - Test: `tests/test_benchmark_protocol.py`
 
-- [ ] **Step 1: Write protocol validation tests**
+- [x] **Step 1: Write protocol validation tests**
 
 ```python
 # tests/test_benchmark_protocol.py
@@ -698,25 +698,25 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run protocol tests and confirm failure**
+- [x] **Step 2: Run protocol tests and confirm failure**
 
 Run: `python3 -m unittest tests.test_benchmark_protocol -v`
 
 Expected: import failure for `experiments.benchmark_host`.
 
-- [ ] **Step 3: Implement protocol and host metadata capture**
+- [x] **Step 3: Implement protocol and host metadata capture**
 
 The protocol JSON must fix 10 warmups, 1000 measured runs, `CLOCK_MONOTONIC_RAW`, five named scopes, double precision, Release build, no outlier deletion, and p50/p95/p99/max reporting. `benchmark_host.py` must validate these fields, calculate nearest-rank percentiles, capture `/proc/cpuinfo`, compiler/CMake versions, git commit, executable SHA-256, command, environment, and raw nanosecond samples. It must never label N150 data as ARM/MCU data.
 
 The first implementation may ingest raw scope samples emitted by executables; it must not invent unavailable scope timings. Missing scopes are recorded as `not_measured`, preventing unsupported paper claims.
 
-- [ ] **Step 4: Run benchmark contract tests**
+- [x] **Step 4: Run benchmark contract tests**
 
 Run: `python3 -m unittest tests.test_benchmark_protocol -v`
 
 Expected: 2 tests pass.
 
-- [ ] **Step 5: Commit benchmark evidence support**
+- [x] **Step 5: Commit benchmark evidence support**
 
 ```bash
 git add experiments/benchmark_protocol.json experiments/benchmark_host.py tests/test_benchmark_protocol.py
@@ -731,7 +731,7 @@ git commit -m "feat: 建立主机基准证据协议"
 - Test: `tests/test_claim_ledger.py`
 - Modify: `paper/chapters/ch5_results.tex`
 
-- [ ] **Step 1: Write ledger validation tests**
+- [x] **Step 1: Write ledger validation tests**
 
 ```python
 # tests/test_claim_ledger.py
@@ -757,13 +757,13 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run ledger tests and confirm failure**
+- [x] **Step 2: Run ledger tests and confirm failure**
 
 Run: `python3 -m unittest tests.test_claim_ledger -v`
 
 Expected: import failure for `paper.evidence.check_claims`.
 
-- [ ] **Step 3: Implement the ledger and reconcile Monte Carlo prose**
+- [x] **Step 3: Implement the ledger and reconcile Monte Carlo prose**
 
 `claims.json` must initially include nominal fuel, solver agreement, N150 solve timing scope, near-nominal scenario definition, Monte Carlo success rate, conditional fuel statistics, and handwritten/automatic model roles. Each entry contains `claim_id`, `manuscript_files`, `value`, `scope`, `source`, `command`, and `status`, where status is one of `verified`, `superseded`, or `future_work`.
 
@@ -771,7 +771,7 @@ Expected: import failure for `paper.evidence.check_claims`.
 
 Run the canonical 1000-sample confirmation scenario once the pipeline is stable and aggregate it. Preserve the raw records as deterministic gzip (`gzip -n -9`) at `experiments/results/near_nominal_v1.jsonl.gz`, commit the compressed records and uncompressed summary, and record SHA-256 digests for both. Then replace the Monte Carlo subsection with the exact manifest definition, attempted/successful counts, Wilson interval, conditional fuel distribution, failure taxonomy, dataset digest, and generation command. Do not describe solver infeasibility as numerical non-convergence without evidence.
 
-- [ ] **Step 4: Verify ledger and manuscript build**
+- [x] **Step 4: Verify ledger and manuscript build**
 
 Run: `python3 -m unittest tests.test_claim_ledger -v && python3 paper/evidence/check_claims.py`
 
@@ -781,7 +781,7 @@ Run: `cd paper && xelatex -interaction=nonstopmode -halt-on-error mars_landing_s
 
 Expected: PDF builds without undefined references or overfull boxes.
 
-- [ ] **Step 5: Commit evidence-backed manuscript results**
+- [x] **Step 5: Commit evidence-backed manuscript results**
 
 ```bash
 git add paper/evidence paper/chapters/ch5_results.tex paper/mars_landing_socp.pdf \
@@ -797,7 +797,7 @@ git commit -m "docs: 以可追溯证据更新鲁棒性结果"
 - Modify: `AGENTS.md`
 - Test: `tests/test_ci_contract.py`
 
-- [ ] **Step 1: Write a CI contract test**
+- [x] **Step 1: Write a CI contract test**
 
 ```python
 # tests/test_ci_contract.py
@@ -818,19 +818,19 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run the CI contract test and confirm failure**
+- [x] **Step 2: Run the CI contract test and confirm failure**
 
 Run: `python3 -m unittest tests.test_ci_contract -v`
 
 Expected: failure because the new commands are absent from `ci/validate.sh`.
 
-- [ ] **Step 3: Add quick and confirmation gates**
+- [x] **Step 3: Add quick and confirmation gates**
 
 At the start of `ci/validate.sh`, run unit discovery, the model/handwritten asset checker, and the claim ledger. Replace the old 20-sample `>40%` Monte Carlo gate with an 8-sample deterministic contract smoke that checks record count/schema only. Add `ci/validate.sh --confirmation` to validate the frozen 1000-sample dataset digest and regenerate its summary without rerunning it. Keep expensive experiment generation as an explicit release command rather than ordinary CI.
 
 Document these entry points in README and add AGENTS rules requiring: scenario manifests before experiments, immutable failed-sample records, claim ledger updates with manuscript changes, no hardware extrapolation, and no replacement of `MarsLanding/MarsLanding.c`.
 
-- [ ] **Step 4: Run all verification gates**
+- [x] **Step 4: Run all verification gates**
 
 Run: `python3 -m unittest discover -s tests -v`
 
@@ -848,7 +848,7 @@ Run: `git diff --check`
 
 Expected: no whitespace errors.
 
-- [ ] **Step 5: Commit the integrated workflow**
+- [x] **Step 5: Commit the integrated workflow**
 
 ```bash
 git add ci/validate.sh README.md AGENTS.md tests/test_ci_contract.py
@@ -861,7 +861,7 @@ git commit -m "ci: 强制实验与论文证据门槛"
 - Modify: `docs/superpowers/specs/2026-07-13-top-tier-research-engineering-design.md`
 - Create: `docs/evidence/stage-a-audit.md`
 
-- [ ] **Step 1: Run the complete evidence audit**
+- [x] **Step 1: Run the complete evidence audit**
 
 Run:
 
@@ -875,19 +875,19 @@ git diff --check
 
 Expected: every command exits zero; the solver matrix still reports approximately 400.7 kg; the manuscript claim ledger and frozen dataset digest pass.
 
-- [ ] **Step 2: Inspect the authoritative artifacts**
+- [x] **Step 2: Inspect the authoritative artifacts**
 
 Verify that the frozen summary count equals the manifest count, every JSONL line validates, failure classifications sum to attempted samples, successful fuel statistics exclude failures, and the PDF Monte Carlo text matches the summary exactly. Verify CMake still builds `ecos_avx`/`ecos_scalar` from `MarsLanding.c` plus `CRM2CCM.c`, and `ecos_auto` from the generated-data path.
 
-- [ ] **Step 3: Record the audit**
+- [x] **Step 3: Record the audit**
 
 Create `docs/evidence/stage-a-audit.md` containing the exact commit, commands, pass counts, dataset/manifest/PDF SHA-256 digests, remaining limitations, and the statement that Stage A establishes evidence infrastructure but does not yet prove target-hardware real-time performance or closed-loop flight readiness.
 
-- [ ] **Step 4: Mark only Stage A complete in the design**
+- [x] **Step 4: Mark only Stage A complete in the design**
 
 Add a dated status block to the design document linking the audit. Keep Stages B-D explicitly active; do not claim the long-term project goal is complete.
 
-- [ ] **Step 5: Commit and push the Stage A audit**
+- [x] **Step 5: Commit and push the Stage A audit**
 
 ```bash
 git add docs/evidence/stage-a-audit.md \
